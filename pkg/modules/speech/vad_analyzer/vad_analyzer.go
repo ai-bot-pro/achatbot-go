@@ -43,18 +43,18 @@ type VADAnalyzer struct {
 	endAtS                   float64
 
 	// 语音置信度提供者
-	voiceConfidenceProvider common.VoiceConfidenceProvider
+	IVoiceConfidenceProvider common.IVoiceConfidenceProvider
 }
 
 // NewVADAnalyzer 创建新的VAD分析器
-func NewVADAnalyzer(args *VADAnalyzerArgs, vcp common.VoiceConfidenceProvider) *VADAnalyzer {
+func NewVADAnalyzer(args *VADAnalyzerArgs, vcp common.IVoiceConfidenceProvider) *VADAnalyzer {
 	analyzer := &VADAnalyzer{
-		args:                    args,
-		vadBuffer:               make([]byte, 0),
-		smoothingFactor:         0.2,
-		prevVolume:              0,
-		vadState:                types.Quiet,
-		voiceConfidenceProvider: vcp,
+		args:                     args,
+		vadBuffer:                make([]byte, 0),
+		smoothingFactor:          0.2,
+		prevVolume:               0,
+		vadState:                 types.Quiet,
+		IVoiceConfidenceProvider: vcp,
 	}
 
 	analyzer.vadFrames = analyzer.numFramesRequired()
@@ -90,23 +90,23 @@ func (b *VADAnalyzer) Reset() {
 }
 
 func (b *VADAnalyzer) GetSampleRate() int {
-	sr, _ := b.voiceConfidenceProvider.GetSampleInfo()
+	sr, _ := b.IVoiceConfidenceProvider.GetSampleInfo()
 	return sr
 }
 
 func (b *VADAnalyzer) Release() {
-	b.voiceConfidenceProvider.Release()
+	b.IVoiceConfidenceProvider.Release()
 }
 
 // numFramesRequired 计算需要的帧数
 func (b *VADAnalyzer) numFramesRequired() int {
-	_, windowSize := b.voiceConfidenceProvider.GetSampleInfo()
+	_, windowSize := b.IVoiceConfidenceProvider.GetSampleInfo()
 	return windowSize
 }
 
 // isActiveSpeech 判断是否是活跃的语音
 func (b *VADAnalyzer) isActiveSpeech(audio []byte) bool {
-	return b.voiceConfidenceProvider.IsActiveSpeech(audio)
+	return b.IVoiceConfidenceProvider.IsActiveSpeech(audio)
 }
 
 // AnalyzeAudio 分析音频

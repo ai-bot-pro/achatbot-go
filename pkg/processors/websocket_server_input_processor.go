@@ -20,14 +20,14 @@ type WebsocketServerParams struct {
 
 // WebsocketServerCallbacks defines callback functions for WebSocket events
 type WebsocketServerCallbacks struct {
-	OnClientConnected    func(ws common.WebSocketConn)
-	OnClientDisconnected func(ws common.WebSocketConn)
+	OnClientConnected    func(ws common.IWebSocketConn)
+	OnClientDisconnected func(ws common.IWebSocketConn)
 }
 
 // WebsocketServerInputProcessor processes audio input from WebSocket connections
 type WebsocketServerInputProcessor struct {
 	*AudioVADInputProcessor
-	websocket  common.WebSocketConn
+	websocket  common.IWebSocketConn
 	params     *WebsocketServerParams
 	callbacks  *WebsocketServerCallbacks
 	receiveCtx context.Context
@@ -37,7 +37,7 @@ type WebsocketServerInputProcessor struct {
 // NewWebsocketServerInputProcessor creates a new WebsocketServerInputProcessor
 func NewWebsocketServerInputProcessor(
 	name string,
-	websocket common.WebSocketConn,
+	websocket common.IWebSocketConn,
 	params *WebsocketServerParams,
 	callbacks *WebsocketServerCallbacks,
 ) *WebsocketServerInputProcessor {

@@ -45,10 +45,10 @@ wsParams := &processors.FastapiWebsocketServerParams{
 3. Define callbacks:
 ```go
 callbacks := &processors.FastapiWebsocketServerCallbacks{
-    OnClientConnected: func(ws processors.WebSocketConn) {
+    OnClientConnected: func(ws processors.IWebSocketConn) {
         log.Println("Client connected")
     },
-    OnClientDisconnected: func(ws processors.WebSocketConn) {
+    OnClientDisconnected: func(ws processors.IWebSocketConn) {
         log.Println("Client disconnected")
     },
 }
@@ -72,10 +72,10 @@ processor.Start(startFrame)
 
 ## WebSocket Connection Interface
 
-To use this processor with different WebSocket libraries, implement the `WebSocketConn` interface:
+To use this processor with different WebSocket libraries, implement the `IWebSocketConn` interface:
 
 ```go
-type WebSocketConn interface {
+type IWebSocketConn interface {
     ReadMessage() (messageType int, p []byte, err error)
     WriteMessage(messageType int, data []byte) error
     Close() error

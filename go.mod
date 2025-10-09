@@ -1,11 +1,12 @@
 module achatbot
 
-go 1.22.0
+go 1.24.0
 
 require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/k2-fsa/sherpa-onnx-go v1.12.12
 	github.com/weedge/pipeline-go v0.0.0-20251007070114-1bf7af44fb77
+	golang.org/x/image v0.32.0
 )
 
 require (

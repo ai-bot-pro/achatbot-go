@@ -45,3 +45,55 @@ func (f *VADStateAudioRawFrame) String() string {
 		f.EndAtS,
 	)
 }
+
+// SpriteFrame represents a sprite frame (collection of images)
+type SpriteFrame struct {
+	*pipelineframes.DataFrame
+	Images []*pipelineframes.ImageRawFrame
+}
+
+// NewSpriteFrame creates a new SpriteFrame
+func NewSpriteFrame(images []*pipelineframes.ImageRawFrame) *SpriteFrame {
+	return &SpriteFrame{
+		DataFrame: pipelineframes.NewDataFrameWithName("SpriteFrame"),
+		Images:    images,
+	}
+}
+
+// AnimationAudioRawFrame represents an animation audio frame
+type AnimationAudioRawFrame struct {
+	*pipelineframes.AudioRawFrame
+	AnimationJSON string `json:"animation_json"`
+	AvatarStatus  string `json:"avatar_status"`
+}
+
+// NewAnimationAudioRawFrame creates a new AnimationAudioRawFrame
+func NewAnimationAudioRawFrame(audio []byte, sampleRate, numChannels, sampleWidth int, animationJSON, avatarStatus string) *AnimationAudioRawFrame {
+	return &AnimationAudioRawFrame{
+		AudioRawFrame: pipelineframes.NewAudioRawFrame(audio, sampleRate, numChannels, sampleWidth),
+		AnimationJSON: animationJSON,
+		AvatarStatus:  avatarStatus,
+	}
+}
+
+// String implements string representation of AnimationAudioRawFrame
+func (f *AnimationAudioRawFrame) String() string {
+	return fmt.Sprintf("%s animation_json: %s avatar_status: %s",
+		f.AudioRawFrame.String(),
+		f.AnimationJSON,
+		f.AvatarStatus)
+}
+
+// TransportMessageFrame represents a transport message frame
+type TransportMessageFrame struct {
+	*pipelineframes.DataFrame
+	Message []byte
+}
+
+// NewTransportMessageFrame creates a new TransportMessageFrame
+func NewTransportMessageFrame(message []byte) *TransportMessageFrame {
+	return &TransportMessageFrame{
+		DataFrame: pipelineframes.NewDataFrameWithName("TransportMessageFrame"),
+		Message:   message,
+	}
+}

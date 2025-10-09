@@ -26,23 +26,23 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-// ExampleWebSocketConn wraps *websocket.Conn to implement our WebSocketConn interface
-type ExampleWebSocketConn struct {
+// ExampleIWebSocketConn wraps *websocket.Conn to implement our IWebSocketConn interface
+type ExampleIWebSocketConn struct {
 	*websocket.Conn
 }
 
-// ReadMessage implements the WebSocketConn interface
-func (wsc *ExampleWebSocketConn) ReadMessage() (messageType int, p []byte, err error) {
+// ReadMessage implements the IWebSocketConn interface
+func (wsc *ExampleIWebSocketConn) ReadMessage() (messageType int, p []byte, err error) {
 	return wsc.Conn.ReadMessage()
 }
 
-// WriteMessage implements the WebSocketConn interface
-func (wsc *ExampleWebSocketConn) WriteMessage(messageType int, data []byte) error {
+// WriteMessage implements the IWebSocketConn interface
+func (wsc *ExampleIWebSocketConn) WriteMessage(messageType int, data []byte) error {
 	return wsc.Conn.WriteMessage(messageType, data)
 }
 
-// Close implements the WebSocketConn interface
-func (wsc *ExampleWebSocketConn) Close() error {
+// Close implements the IWebSocketConn interface
+func (wsc *ExampleIWebSocketConn) Close() error {
 	return wsc.Conn.Close()
 }
 
@@ -57,7 +57,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	defer conn.Close()
 
 	// Wrap the connection to implement our interface
-	wsConn := &ExampleWebSocketConn{Conn: conn}
+	wsConn := &ExampleIWebSocketConn{Conn: conn}
 
 	// Create audio VAD parameters
 	audioVADParams := params.NewAudioVADParams()
@@ -72,10 +72,10 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	// Create callbacks
 	callbacks := &achabot_processors.WebsocketServerCallbacks{
-		OnClientConnected: func(ws common.WebSocketConn) {
+		OnClientConnected: func(ws common.IWebSocketConn) {
 			log.Println("Client connected")
 		},
-		OnClientDisconnected: func(ws common.WebSocketConn) {
+		OnClientDisconnected: func(ws common.IWebSocketConn) {
 			log.Println("Client disconnected")
 		},
 	}
