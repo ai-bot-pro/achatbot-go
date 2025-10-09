@@ -144,10 +144,10 @@ func (p *AudioCameraOutputProcessor) ProcessFrame(frame frames.Frame, direction 
 		p.handleInterruptions(frame)
 	case *frames.StopInterruptionFrame:
 		p.PushFrame(f, direction)
-	case *achatbot_frames.TransportMessageFrame, *frames.TextFrame:
+	case *achatbot_frames.TransportMessageFrame, *frames.TextFrame, *achatbot_frames.AnimationAudioRawFrame:
 		err := p.transportWriter.WriteFrame(f)
 		if err != nil {
-			slog.Error("Error sending message", "error", err)
+			slog.Error(fmt.Sprintf("Error Write %T", f), "error", err)
 		}
 	case *frames.AudioRawFrame:
 		p.handleAudio(f)
@@ -155,9 +155,6 @@ func (p *AudioCameraOutputProcessor) ProcessFrame(frame frames.Frame, direction 
 		p.handleImage(f)
 	case *achatbot_frames.SpriteFrame:
 		p.handleSpriteImages(f)
-	case *achatbot_frames.AnimationAudioRawFrame:
-		// audio + animation
-		p.handleAudioAnimation(f)
 	case *achatbot_frames.TTSStartedFrame:
 		p.botStartedSpeaking()
 		p.QueueFrame(frame, processors.FrameDirectionDownstream)
@@ -195,36 +192,6 @@ func (p *AudioCameraOutputProcessor) botStoppedSpeaking() {
 	slog.Debug("Bot stopped speaking")
 	p.botSpeaking = false
 	p.PushFrame(achatbot_frames.NewBotStoppedSpeakingFrame(), processors.FrameDirectionUpstream)
-}
-
-// writeAnimationAudioFrames writes animation audio frames
-func (p *AudioCameraOutputProcessor) WriteAnimationAudioFrames(frame frames.Frame) {
-	// Default call handleAudio to process audio raw frame
-	if animationFrame, ok := frame.(*achatbot_frames.AnimationAudioRawFrame); ok {
-		// Process animation-specific data
-		slog.Info("Processing animation audio frame",
-			"animation_json", animationFrame.AnimationJSON,
-			"avatar_status", animationFrame.AvatarStatus)
-
-		// Process the audio part
-		err := p.transportWriter.WriteFrame(animationFrame)
-		if err != nil {
-			slog.Error("Error writing animationFrame", "error", err)
-		}
-		//p.handleAudio(animationFrame.AudioRawFrame)
-	} else if audioFrame, ok := frame.(*frames.AudioRawFrame); ok {
-		p.handleAudio(audioFrame)
-	} else {
-		slog.Warn(fmt.Sprintf("%T don't support", frame))
-	}
-}
-
-// handleAudioAnimation handles animation audio frames
-func (p *AudioCameraOutputProcessor) handleAudioAnimation(frame frames.Frame) {
-	if !p.params.AudioOutEnabled {
-		return
-	}
-	p.WriteAnimationAudioFrames(frame)
 }
 
 // handleAudio handles audio frames
