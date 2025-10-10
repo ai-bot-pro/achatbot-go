@@ -1,0 +1,206 @@
+package main
+
+import (
+	"context"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
+	"time"
+
+	"github.com/gorilla/websocket"
+	sherpa "github.com/k2-fsa/sherpa-onnx-go/sherpa_onnx"
+	"github.com/weedge/pipeline-go/pkg/frames"
+	"github.com/weedge/pipeline-go/pkg/logger"
+	"github.com/weedge/pipeline-go/pkg/pipeline"
+	"github.com/weedge/pipeline-go/pkg/processors"
+	"github.com/weedge/pipeline-go/pkg/serializers"
+
+	"achatbot/pkg/consts"
+	"achatbot/pkg/modules/speech/vad_analyzer"
+	"achatbot/pkg/params"
+	achatbot_processors "achatbot/pkg/processors"
+	"achatbot/pkg/transports"
+)
+
+// Upgrader for upgrading HTTP connections to WebSocket connections
+var upgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool {
+		// Allow connections from any origin in this example
+		// In production, you should be more restrictive
+		return true
+	},
+}
+
+// Global variables to manage server state
+var (
+	serverMu    sync.Mutex
+	activeTasks = make(map[*pipeline.PipelineTask]bool)
+)
+
+// ExampleIWebSocketConn wraps *websocket.Conn to implement our IWebSocketConn interface
+type ExampleIWebSocketConn struct {
+	*websocket.Conn
+}
+
+// ReadMessage implements the IWebSocketConn interface
+func (wsc *ExampleIWebSocketConn) ReadMessage() (messageType int, p []byte, err error) {
+	return wsc.Conn.ReadMessage()
+}
+
+// WriteMessage implements the IWebSocketConn interface
+func (wsc *ExampleIWebSocketConn) WriteMessage(messageType int, data []byte) error {
+	println("WriteMessage-->", messageType, len(data))
+	return wsc.Conn.WriteMessage(messageType, data)
+}
+
+// Close implements the IWebSocketConn interface
+func (wsc *ExampleIWebSocketConn) Close() error {
+	println("Close websocket connection")
+	return wsc.Conn.Close()
+}
+
+// handleWebSocket handles incoming WebSocket connections
+func handleWebSocket(w http.ResponseWriter, r *http.Request) {
+	// Upgrade the HTTP connection to a WebSocket connection
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Printf("Error upgrading to WebSocket: %v", err)
+		return
+	}
+	defer conn.Close()
+
+	// vad provider
+	sherpaOnnxProvider := vad_analyzer.NewSherpaOnnxProvider(sherpa.VadModelConfig{
+		SileroVad: sherpa.SileroVadModelConfig{
+			Model:              "./models/silero_vad.onnx",
+			Threshold:          0.5,
+			MinSilenceDuration: 0.5,
+			MinSpeechDuration:  0.25,
+			MaxSpeechDuration:  1.0,
+		},
+		SampleRate: consts.DefaultRate,
+		NumThreads: 1,
+		Provider:   "cpu",
+		Debug:      0,
+	}, 10)
+	vadAnalyzer := vad_analyzer.NewVADAnalyzer(params.NewVADAnalyzerArgs(), sherpaOnnxProvider)
+
+	// Wrap the connection to implement our interface
+	wsConn := &ExampleIWebSocketConn{Conn: conn}
+
+	// Create audio VAD parameters todo: use viper config to hot load
+	audioCameraParams := params.NewAudioCameraParams()
+	audioCameraParams.AudioVADParams.WithVADAnalyzer(vadAnalyzer).
+		WithVADEnabled(true).WithVADAudioPassthrough(true)
+	audioCameraParams.AudioVADParams.AudioParams.
+		WithAudioInEnabled(true).WithAudioOutEnabled(true).
+		WithAudioInSampleRate(consts.DefaultRate).WithAudioInSampleWidth(consts.DefaultSampleWidth).WithAudioInChannels(consts.DefaultChannels)
+
+	// Create WebSocket server parameters
+	wsParams := &params.WebsocketServerParams{
+		AudioCameraParams: audioCameraParams,
+		Serializer:        serializers.NewProtobufSerializer(),
+	}
+	wsParams.WithAudioOutFrameSize(6400).WithAudioOutAddWavHeader(true)
+
+	// Set Websocket Transport Writer
+	transportWriter := achatbot_processors.NewWebsocketTransportWriter(wsConn, wsParams)
+	audioCameraParams.WithTransportWriter(transportWriter).WithAudioOutEnabled(true).
+		WithAudioOutSampleWidth(consts.DefaultSampleWidth).WithAudioOutSampleRate(consts.DefaultRate).WithAudioOutChannels(consts.DefaultChannels)
+
+	// 1. Create the WebSocket server input processor
+	ws_transport := transports.NewWebsocketTransport(
+		wsConn,
+		wsParams,
+	)
+
+	// 2. Create a simple pipeline with the async processor
+	myPipeline := pipeline.NewPipelineWithVerbose(
+		[]processors.IFrameProcessor{
+			processors.NewFrameLoggerProcessor(
+				"WS_LOGGER",
+				"EndFrameFilter",
+				[]frames.Frame{},
+				[]frames.Frame{frames.EndFrame{}, frames.CancelFrame{}},
+			),
+			ws_transport.InputProcessor(),
+			ws_transport.OutputProcessor(),
+		},
+		nil, nil,
+		true,
+	)
+	logger.Info(myPipeline.String())
+
+	// In a real application, you would integrate this with your frame processing pipeline
+	// and properly manage the processor lifecycle
+	// 3. Create and run a pipeline task
+	task := pipeline.NewPipelineTask(myPipeline, pipeline.PipelineParams{})
+
+	// Add task to active tasks map
+	serverMu.Lock()
+	activeTasks[task] = true
+	serverMu.Unlock()
+
+	// Remove task from active tasks when done
+	defer func() {
+		serverMu.Lock()
+		delete(activeTasks, task)
+		serverMu.Unlock()
+	}()
+
+	task.Run()
+}
+
+func main() {
+	logger.InitLoggerWithConfig(logger.NewDefaultLoggerConfig())
+	// Create HTTP server
+	server := &http.Server{
+		Addr: ":4321",
+	}
+
+	// Set up the WebSocket endpoint
+	http.HandleFunc("/", handleWebSocket)
+
+	// Channel to listen for interrupt signal
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	// Run server in a goroutine
+	go func() {
+		logger.Info("Starting WebSocket server on :4321")
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Server failed to start: %v", err)
+		}
+	}()
+
+	// Wait for interrupt signal
+	<-sigChan
+	logger.Info("Shutdown signal received")
+
+	// Create a context with timeout for graceful shutdown
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer shutdownCancel()
+
+	// Shutdown the HTTP server gracefully
+	logger.Info("Shutting down HTTP server...")
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		log.Fatalf("Server forced to shutdown: %v", err)
+	}
+
+	// Cancel all active pipeline tasks
+	logger.Info("Cancelling all active pipeline tasks...")
+	serverMu.Lock()
+	for task := range activeTasks {
+		// Send a cancel frame to the pipeline
+		task.Cancel()
+	}
+	serverMu.Unlock()
+
+	// Wait a bit for tasks to finish cleanup
+	time.Sleep(1 * time.Second)
+
+	logger.Info("Server exited gracefully")
+}

@@ -1,13 +1,12 @@
 package processors
 
 import (
-	"log/slog"
-
 	"github.com/weedge/pipeline-go/pkg/frames"
+	"github.com/weedge/pipeline-go/pkg/logger"
 	"github.com/weedge/pipeline-go/pkg/processors"
 
-	"achatbot/pkg/common"
 	"achatbot/pkg/params"
+	achatbot_frames "achatbot/pkg/types/frames"
 )
 
 // WebsocketServerOutputProcessor processes output for  WebSocket server
@@ -18,7 +17,6 @@ type WebsocketServerOutputProcessor struct {
 // NewWebsocketServerOutputProcessor creates a new WebsocketServerOutputProcessor
 func NewWebsocketServerOutputProcessor(
 	name string,
-	websocket common.IWebSocketConn,
 	params *params.WebsocketServerParams,
 ) *WebsocketServerOutputProcessor {
 	p := &WebsocketServerOutputProcessor{
@@ -35,10 +33,12 @@ func (p *WebsocketServerOutputProcessor) ProcessFrame(frame frames.Frame, direct
 
 	// Handle specific frame types
 	switch f := frame.(type) {
+	case *achatbot_frames.VADStateAudioRawFrame:
+		p.handleAudio(f.AudioRawFrame)
 	case *frames.StartInterruptionFrame:
 		err := p.transportWriter.WriteFrame(f)
 		if err != nil {
-			slog.Error("Error send StartInterruptionFrame", "error", err)
+			logger.Error("Error send StartInterruptionFrame", "error", err)
 		}
 	}
 }

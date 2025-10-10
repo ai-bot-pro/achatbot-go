@@ -2,9 +2,9 @@ package vad_analyzer
 
 import (
 	"fmt"
-	"log/slog"
 
 	sherpa "github.com/k2-fsa/sherpa-onnx-go/sherpa_onnx"
+	"github.com/weedge/pipeline-go/pkg/logger"
 
 	"achatbot/pkg/utils"
 )
@@ -24,7 +24,7 @@ func NewSherpaOnnxProvider(config sherpa.VadModelConfig, bufferSizeInSeconds flo
 
 	windowSize := 0
 	if utils.FileExists(config.SileroVad.Model) {
-		slog.Info("Use ten-vad")
+		logger.Info("Use ten-vad")
 		//config.SileroVad.Threshold = 0.5
 		//config.SileroVad.MinSilenceDuration = 0.5
 		//config.SileroVad.MinSpeechDuration = 0.25
@@ -32,7 +32,7 @@ func NewSherpaOnnxProvider(config sherpa.VadModelConfig, bufferSizeInSeconds flo
 		config.SileroVad.WindowSize = 512
 		windowSize = config.SileroVad.WindowSize
 	} else if utils.FileExists(config.TenVad.Model) {
-		slog.Info("Use ten-vad")
+		logger.Info("Use ten-vad")
 		//config.TenVad.Threshold = 0.5
 		//config.TenVad.MinSilenceDuration = 0.5
 		//config.TenVad.MinSpeechDuration = 0.25
@@ -40,7 +40,7 @@ func NewSherpaOnnxProvider(config sherpa.VadModelConfig, bufferSizeInSeconds flo
 		config.TenVad.WindowSize = 256
 		windowSize = config.TenVad.WindowSize
 	} else {
-		slog.Error("Please download either ./models/silero_vad.onnx or ./models/ten-vad.onnx")
+		logger.Error("Please download either ./models/silero_vad.onnx or ./models/ten-vad.onnx")
 		return nil
 	}
 
@@ -60,7 +60,7 @@ func NewSherpaOnnxProvider(config sherpa.VadModelConfig, bufferSizeInSeconds flo
 
 func (s *SherpaOnnxProvider) IsActiveSpeech(audio []byte) bool {
 	samples := utils.SamplesInt16ToFloat(audio)
-	slog.Debug(fmt.Sprintf("AcceptWaveform len %d", len(samples)))
+	logger.Debug(fmt.Sprintf("AcceptWaveform len %d", len(samples)))
 	s.vad.AcceptWaveform(samples)
 	return s.vad.IsSpeech()
 }

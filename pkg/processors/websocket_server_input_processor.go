@@ -2,21 +2,15 @@ package processors
 
 import (
 	"context"
-	"log/slog"
 
 	"github.com/weedge/pipeline-go/pkg/frames"
-	"github.com/weedge/pipeline-go/pkg/serializers"
+	"github.com/weedge/pipeline-go/pkg/logger"
+	"github.com/weedge/pipeline-go/pkg/processors"
 
 	"achatbot/pkg/common"
+	"achatbot/pkg/consts"
 	"achatbot/pkg/params"
-	"achatbot/pkg/types/networks"
 )
-
-// WebsocketServerParams represents parameters for the WebSocket server
-type WebsocketServerParams struct {
-	*params.AudioVADParams
-	Serializer serializers.Serializer
-}
 
 // WebsocketServerCallbacks defines callback functions for WebSocket events
 type WebsocketServerCallbacks struct {
@@ -28,7 +22,7 @@ type WebsocketServerCallbacks struct {
 type WebsocketServerInputProcessor struct {
 	*AudioVADInputProcessor
 	websocket  common.IWebSocketConn
-	params     *WebsocketServerParams
+	params     *params.WebsocketServerParams
 	callbacks  *WebsocketServerCallbacks
 	receiveCtx context.Context
 	cancelRecv context.CancelFunc
@@ -38,7 +32,7 @@ type WebsocketServerInputProcessor struct {
 func NewWebsocketServerInputProcessor(
 	name string,
 	websocket common.IWebSocketConn,
-	params *WebsocketServerParams,
+	params *params.WebsocketServerParams,
 	callbacks *WebsocketServerCallbacks,
 ) *WebsocketServerInputProcessor {
 	// Create the base audio VAD processor
@@ -59,11 +53,6 @@ func NewWebsocketServerInputProcessor(
 
 // Start starts the WebSocket processor
 func (p *WebsocketServerInputProcessor) Start(frame *frames.StartFrame) {
-	slog.Info("Starting WebSocket server input processor")
-
-	// Call parent start
-	p.AudioVADInputProcessor.Start(frame)
-
 	// Notify client connected
 	if p.callbacks.OnClientConnected != nil {
 		p.callbacks.OnClientConnected(p.websocket)
@@ -71,11 +60,12 @@ func (p *WebsocketServerInputProcessor) Start(frame *frames.StartFrame) {
 
 	// Start receiving messages in a goroutine
 	go p.receiveMessages()
+	logger.Info("WebsocketServerInputProcessor Start")
 }
 
 // Stop stops the WebSocket processor
-func (p *WebsocketServerInputProcessor) Stop() {
-	slog.Info("Stopping WebSocket server input processor")
+func (p *WebsocketServerInputProcessor) Stop(frame *frames.EndFrame) {
+	logger.Info("WebsocketServerInputProcessor Stopping")
 
 	// Cancel receive loop
 	p.cancelRecv()
@@ -87,13 +77,11 @@ func (p *WebsocketServerInputProcessor) Stop() {
 		p.websocket.Close()
 	}
 
-	// Call parent stop
-	p.AudioVADInputProcessor.Stop()
 }
 
 // Cancel cancels the WebSocket processor
 func (p *WebsocketServerInputProcessor) Cancel(frame *frames.CancelFrame) {
-	slog.Info("Cancelling WebSocket server input processor")
+	logger.Info("WebsocketServerInputProcessor Cancelling")
 
 	// Cancel receive loop
 	p.cancelRecv()
@@ -103,14 +91,31 @@ func (p *WebsocketServerInputProcessor) Cancel(frame *frames.CancelFrame) {
 		p.websocket.Close()
 	}
 
-	// Call parent cancel
-	p.AudioVADInputProcessor.Cancel(frame)
+	logger.Info("WebsocketServerInputProcessor Cancel Done")
+}
+
+// ProcessFrame processes a frame
+func (p *WebsocketServerInputProcessor) ProcessFrame(frame frames.Frame, direction processors.FrameDirection) {
+	// call frame processor to init start/end/cancel/interruption frame and push/queue frame
+	p.AudioVADInputProcessor.ProcessFrame(frame, direction)
+
+	// process self start/end/cancel frame logic,
+	// NOTE: don't to push frame again
+	switch f := frame.(type) {
+	case *frames.StartFrame:
+		p.Start(f)
+	case *frames.EndFrame:
+		p.Stop(f)
+	case *frames.CancelFrame:
+		p.Cancel(f)
+	}
+
 }
 
 // receiveMessages receives messages from the WebSocket connection
 func (p *WebsocketServerInputProcessor) receiveMessages() {
 	defer func() {
-		slog.Info("WebSocket connection disconnected")
+		logger.Info("WebSocket connection disconnected")
 		if p.callbacks.OnClientDisconnected != nil {
 			p.callbacks.OnClientDisconnected(p.websocket)
 		}
@@ -125,24 +130,24 @@ func (p *WebsocketServerInputProcessor) receiveMessages() {
 			// Read message from WebSocket
 			messageType, message, err := p.websocket.ReadMessage()
 			if err != nil {
-				slog.Error("Error reading WebSocket message", "error", err)
+				logger.Error("Error reading WebSocket message", "error", err)
 				return
 			}
 
 			// We're only interested in binary messages (similar to iter_bytes() in Python)
-			if messageType != networks.BinaryMessage {
-				slog.Warn("Warning only interested in binary messages(serialized)", "messageType", messageType)
+			if messageType != consts.BinaryMessage {
+				logger.Warn("Warning only interested in binary messages(serialized)", "messageType", messageType)
 				continue
 			}
 
 			// Deserialize the message
 			frame, err := p.params.Serializer.Deserialize(message)
 			if err != nil {
-				slog.Error("Error deserializing WebSocket message", "error", err)
+				logger.Error("Error deserializing WebSocket message", "error", err)
 				continue
 			}
 			if frame == nil {
-				slog.Warn("Warning deserializing frame is nil")
+				logger.Warn("Warning deserializing frame is nil")
 				continue
 			}
 
@@ -151,7 +156,7 @@ func (p *WebsocketServerInputProcessor) receiveMessages() {
 			case *frames.AudioRawFrame:
 				err := p.PushAudioFrame(frame)
 				if err != nil {
-					slog.Error("Error pushing audio frame", "error", err)
+					logger.Error("Error pushing audio frame", "error", err)
 				}
 			}
 

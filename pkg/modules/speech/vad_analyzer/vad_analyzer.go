@@ -6,24 +6,14 @@ import (
 	pipelineframes "github.com/weedge/pipeline-go/pkg/frames"
 
 	"achatbot/pkg/common"
+	"achatbot/pkg/params"
 	"achatbot/pkg/types"
 	localframes "achatbot/pkg/types/frames"
 )
 
-// VADAnalyzerArgs VAD分析器参数
-type VADAnalyzerArgs struct {
-	SampleRate  int     `json:"sample_rate"`
-	NumChannels int     `json:"num_channels"`
-	SampleWidth int     `json:"sample_width"`
-	Confidence  float64 `json:"confidence"`
-	MinVolume   float64 `json:"min_volume"`
-	StartSecs   float64 `json:"start_secs"`
-	StopSecs    float64 `json:"stop_secs"`
-}
-
 // VADAnalyzer 基础VAD分析器
 type VADAnalyzer struct {
-	args                     *VADAnalyzerArgs
+	args                     *params.VADAnalyzerArgs
 	vadFrames                int
 	vadFramesNumBytes        int
 	sampleNumBytes           int
@@ -47,7 +37,7 @@ type VADAnalyzer struct {
 }
 
 // NewVADAnalyzer 创建新的VAD分析器
-func NewVADAnalyzer(args *VADAnalyzerArgs, vcp common.IVoiceConfidenceProvider) *VADAnalyzer {
+func NewVADAnalyzer(args *params.VADAnalyzerArgs, vcp common.IVoiceConfidenceProvider) *VADAnalyzer {
 	analyzer := &VADAnalyzer{
 		args:                     args,
 		vadBuffer:                make([]byte, 0),
@@ -67,12 +57,6 @@ func NewVADAnalyzer(args *VADAnalyzerArgs, vcp common.IVoiceConfidenceProvider) 
 
 	analyzer.Reset()
 	return analyzer
-}
-
-// 创建VAD分析器的便捷函数
-func NewSherpaOnnxVADAnalyzer(args *VADAnalyzerArgs) *VADAnalyzer {
-	provider := &SherpaOnnxProvider{}
-	return NewVADAnalyzer(args, provider)
 }
 
 // Reset 重置分析器状态
@@ -126,6 +110,7 @@ func (b *VADAnalyzer) AnalyzeAudio(buffer []byte) *localframes.VADStateAudioRawF
 				SampleRate:  b.args.SampleRate,
 				NumChannels: b.args.NumChannels,
 				SampleWidth: b.args.SampleWidth,
+				NumFrames:   0,
 			},
 			State:    b.vadState,
 			SpeechID: b.speechID,
@@ -186,13 +171,14 @@ func (b *VADAnalyzer) AnalyzeAudio(buffer []byte) *localframes.VADStateAudioRawF
 		b.endAtS = math.Round(float64(b.accumulateSpeechBytesLen)/float64(b.sampleNumBytes)*1000) / 1000
 	}
 
-	return &localframes.VADStateAudioRawFrame{
+	vadStateAudioRawFrame := &localframes.VADStateAudioRawFrame{
 		AudioRawFrame: &pipelineframes.AudioRawFrame{
 			DataFrame:   pipelineframes.NewDataFrameWithName("VADStateAudioRawFrame"),
 			Audio:       audioBytes,
 			SampleRate:  b.args.SampleRate,
 			NumChannels: b.args.NumChannels,
 			SampleWidth: b.args.SampleWidth,
+			NumFrames:   len(audioBytes) / (b.args.NumChannels * b.args.SampleWidth),
 		},
 		State:    b.vadState,
 		SpeechID: b.speechID,
@@ -201,4 +187,5 @@ func (b *VADAnalyzer) AnalyzeAudio(buffer []byte) *localframes.VADStateAudioRawF
 		CurAtS:   b.curAtS,
 		EndAtS:   b.endAtS,
 	}
+	return vadStateAudioRawFrame
 }

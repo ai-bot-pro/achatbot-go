@@ -3,17 +3,17 @@ package processors
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"sync"
 	"time"
 
 	"github.com/weedge/pipeline-go/pkg/frames"
+	"github.com/weedge/pipeline-go/pkg/logger"
 	"github.com/weedge/pipeline-go/pkg/processors"
 
 	"achatbot/pkg/common"
 	"achatbot/pkg/params"
 	"achatbot/pkg/types"
-	acahtbot_frames "achatbot/pkg/types/frames"
+	achatbot_frames "achatbot/pkg/types/frames"
 )
 
 // AudioVADInputProcessor processes audio input with VAD
@@ -56,19 +56,18 @@ func (p *AudioVADInputProcessor) SetVADAnalyzer(analyzer common.IVADAnalyzer) {
 
 // Start starts the processor
 func (p *AudioVADInputProcessor) Start(frame *frames.StartFrame) {
-	slog.Info("%s start, params: %+v", p.Name(), p.params)
-
 	if p.params.AudioInEnabled || p.params.VADEnabled {
 		p.audioTask.Add(1)
 		go p.audioTaskHandler()
 	}
 
+	logger.Info("AudioVADInputProcessor Start")
 }
 
 // Stop stops the processor
 func (p *AudioVADInputProcessor) Stop() {
+	logger.Info("AudioVADInputProcessor Stopping")
 	if p.params.AudioInEnabled || p.params.VADEnabled {
-		slog.Info("stop to Cancelling audio task")
 		p.cancel()
 		p.audioTask.Wait()
 	}
@@ -88,20 +87,21 @@ func (p *AudioVADInputProcessor) Stop() {
 		// Task completed successfully
 	case <-ctx.Done():
 		// Timeout occurred
-		slog.Warn("Timeout occurred while waiting for push frame task to finish")
+		logger.Warn("Timeout occurred while waiting for push frame task to finish")
 	}
-
+	logger.Info("AudioVADInputProcessor Stop Done")
 }
 
 // Cancel cancels all tasks
 func (p *AudioVADInputProcessor) Cancel(frame *frames.CancelFrame) {
+	logger.Info("AudioVADInputProcessor Cancelling")
 	if p.params.AudioInEnabled || p.params.VADEnabled {
-		slog.Info("cancel to Cancelling audio task")
 		p.cancel()
 		p.audioTask.Wait()
 	}
 
-	p.Cleanup()
+	// p.Cleanup() // pipeline.Cleanup() to call processor Cleanup
+	logger.Info("AudioVADInputProcessor Cancel Done")
 }
 
 // PushAudioFrame pushes an audio frame to the queue
@@ -112,6 +112,9 @@ func (p *AudioVADInputProcessor) PushAudioFrame(frame *frames.AudioRawFrame) err
 			return nil
 		case <-p.ctx.Done():
 			return p.ctx.Err()
+		default:
+			// Channel may be closed, return error instead of panicking
+			return fmt.Errorf("audioInQueue is closed, cannot push audio frame")
 		}
 	}
 	return nil
@@ -126,8 +129,12 @@ func (p *AudioVADInputProcessor) audioTaskHandler() {
 	for {
 		select {
 		case audioFrame := <-p.audioInQueue:
+			if audioFrame == nil {
+				logger.Infof("%s audioFrame is nil, audioInQueue closed", p.Name())
+				return
+			}
 
-			var vadStateFrame *acahtbot_frames.VADStateAudioRawFrame
+			var vadStateFrame *achatbot_frames.VADStateAudioRawFrame
 			var userInterruptionFrame frames.Frame
 
 			// Check VAD and push event if necessary
@@ -139,7 +146,7 @@ func (p *AudioVADInputProcessor) audioTaskHandler() {
 			}
 
 			// Handle user started speaking
-			if _, ok := userInterruptionFrame.(*acahtbot_frames.UserStartedSpeakingFrame); ok {
+			if _, ok := userInterruptionFrame.(*achatbot_frames.UserStartedSpeakingFrame); ok {
 				p.handleInterruptions(userInterruptionFrame, true)
 			}
 
@@ -153,20 +160,21 @@ func (p *AudioVADInputProcessor) audioTaskHandler() {
 			}
 
 			// Handle user stopped speaking
-			if _, ok := userInterruptionFrame.(*acahtbot_frames.UserStoppedSpeakingFrame); ok {
+			if _, ok := userInterruptionFrame.(*achatbot_frames.UserStoppedSpeakingFrame); ok {
 				p.handleInterruptions(userInterruptionFrame, true)
 			}
 
 		case <-p.ctx.Done():
-			slog.Info(fmt.Sprintf("%s audio_task_handler cancelled", p.Name()))
+			logger.Info(fmt.Sprintf("%s audio_task_handler cancelled", p.Name()))
 			return
 		}
 	}
 }
 
 // vadAnalyze analyzes audio using VAD
-func (p *AudioVADInputProcessor) vadAnalyze(audioBytes []byte) *acahtbot_frames.VADStateAudioRawFrame {
-	vadStateFrame := &acahtbot_frames.VADStateAudioRawFrame{
+func (p *AudioVADInputProcessor) vadAnalyze(audioBytes []byte) *achatbot_frames.VADStateAudioRawFrame {
+	//println(len(audioBytes), p.params.String())
+	vadStateFrame := &achatbot_frames.VADStateAudioRawFrame{
 		State:         types.Quiet,
 		AudioRawFrame: frames.NewAudioRawFrame(audioBytes, p.params.AudioInSampleRate, p.params.AudioInChannels, p.params.AudioInSampleWidth),
 	}
@@ -180,7 +188,7 @@ func (p *AudioVADInputProcessor) vadAnalyze(audioBytes []byte) *acahtbot_frames.
 }
 
 // handleVAD handles VAD processing
-func (p *AudioVADInputProcessor) handleVAD(audioBytes []byte, vadState types.VADState) (*acahtbot_frames.VADStateAudioRawFrame, frames.Frame) {
+func (p *AudioVADInputProcessor) handleVAD(audioBytes []byte, vadState types.VADState) (*achatbot_frames.VADStateAudioRawFrame, frames.Frame) {
 	vadStateFrame := p.vadAnalyze(audioBytes)
 
 	newVadState := vadStateFrame.State
@@ -191,9 +199,9 @@ func (p *AudioVADInputProcessor) handleVAD(audioBytes []byte, vadState types.VAD
 		newVadState != types.Stopping {
 		switch newVadState {
 		case types.Speaking:
-			userInterruptionFrame = acahtbot_frames.NewUserStartedSpeakingFrame()
+			userInterruptionFrame = achatbot_frames.NewUserStartedSpeakingFrame()
 		case types.Quiet:
-			userInterruptionFrame = acahtbot_frames.NewUserStoppedSpeakingFrame()
+			userInterruptionFrame = achatbot_frames.NewUserStoppedSpeakingFrame()
 		}
 	}
 
@@ -222,15 +230,15 @@ func (p *AudioVADInputProcessor) stopInterruption() {
 func (p *AudioVADInputProcessor) handleInterruptions(frame frames.Frame, pushFrame bool) {
 	if p.InterruptionsAllowed() {
 		switch frame.(type) {
-		case *acahtbot_frames.BotInterruptionFrame:
-			slog.Info("Bot interruption")
+		case *achatbot_frames.UserStartedSpeakingFrame:
+			logger.Info("User started speaking")
 			p.startInterruption()
-		case *acahtbot_frames.UserStartedSpeakingFrame:
-			slog.Info("User started speaking")
-			p.startInterruption()
-		case *acahtbot_frames.UserStoppedSpeakingFrame:
-			slog.Info("User stopped speaking")
+		case *achatbot_frames.UserStoppedSpeakingFrame:
+			logger.Info("User stopped speaking")
 			p.stopInterruption()
+		case *achatbot_frames.BotInterruptionFrame:
+			logger.Info("Bot interruption")
+			p.startInterruption()
 		}
 	}
 
@@ -246,13 +254,16 @@ func (p *AudioVADInputProcessor) ProcessFrame(frame frames.Frame, direction proc
 	p.AsyncFrameProcessor.WithPorcessFrameAllowPush(false).ProcessFrame(frame, direction)
 
 	switch f := frame.(type) {
-	case *frames.CancelFrame, *frames.EndFrame:
-		p.PushFrame(f, direction)
-		p.Stop()
 	case *frames.StartFrame:
 		p.PushFrame(f, direction)
 		p.Start(f)
-	case *acahtbot_frames.BotInterruptionFrame:
+	case *frames.EndFrame:
+		p.PushFrame(f, direction)
+		p.Stop()
+	case *frames.CancelFrame:
+		p.PushFrame(f, direction)
+		p.Cancel(f)
+	case *achatbot_frames.BotInterruptionFrame:
 		p.handleInterruptions(f, false)
 	case *frames.StartInterruptionFrame:
 		p.startInterruption()
@@ -267,6 +278,10 @@ func (p *AudioVADInputProcessor) ProcessFrame(frame frames.Frame, direction proc
 // Cleanup performs cleanup operations
 func (p *AudioVADInputProcessor) Cleanup() {
 	// Close the audio input queue
-	close(p.audioInQueue)
+	if p.audioInQueue != nil {
+		close(p.audioInQueue)
+		p.audioInQueue = nil
+	}
 	p.AsyncFrameProcessor.Cleanup()
+	logger.Info("AudioVADInputProcessor Cleanup Done")
 }

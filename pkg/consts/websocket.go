@@ -1,4 +1,4 @@
-package networks
+package consts
 
 // Constants for WebSocket message types
 const (

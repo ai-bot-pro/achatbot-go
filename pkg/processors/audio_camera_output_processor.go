@@ -3,11 +3,11 @@ package processors
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"sync"
 	"time"
 
 	"github.com/weedge/pipeline-go/pkg/frames"
+	"github.com/weedge/pipeline-go/pkg/logger"
 	"github.com/weedge/pipeline-go/pkg/processors"
 
 	"achatbot/pkg/common"
@@ -71,8 +71,6 @@ func NewAudioCameraOutputProcessor(name string, params *params.AudioCameraParams
 
 // Start starts the processor
 func (p *AudioCameraOutputProcessor) Start(frame *frames.StartFrame) {
-	slog.Info("%s start, params: %+v", p.Name(), p.params)
-
 	// Create media threads queues and task
 	if p.params.CameraOutEnabled {
 		p.cameraOutTask.Add(1)
@@ -82,11 +80,12 @@ func (p *AudioCameraOutputProcessor) Start(frame *frames.StartFrame) {
 		p.audioOutTask.Add(1)
 		go p.audioOutTaskHandler()
 	}
+	logger.Info("AudioCameraOutputProcessor Start")
 }
 
 // Stop stops the processor
 func (p *AudioCameraOutputProcessor) Stop(frame *frames.EndFrame) {
-	slog.Info("Stopping audio camera output processor")
+	logger.Info("AudioCameraOutputProcessor Stopping")
 
 	// Cancel tasks
 	p.cancel()
@@ -101,12 +100,12 @@ func (p *AudioCameraOutputProcessor) Stop(frame *frames.EndFrame) {
 		p.cameraOutTask.Wait()
 	}
 
-	slog.Info("Stop audio_camera_output_processor Done")
+	logger.Info("AudioCameraOutputProcessor Stop Done")
 }
 
 // Cancel cancels the processor
 func (p *AudioCameraOutputProcessor) Cancel(frame *frames.CancelFrame) {
-	slog.Info("Cancelling audio camera output processor")
+	logger.Info("AudioCameraOutputProcessor Cancelling")
 
 	// Cancel tasks
 	p.cancel()
@@ -121,7 +120,7 @@ func (p *AudioCameraOutputProcessor) Cancel(frame *frames.CancelFrame) {
 		p.cameraOutTask.Wait()
 	}
 
-	slog.Info("Cancel audio_camera_output_processor Done")
+	logger.Info("AudioCameraOutputProcessor Cancel Done")
 }
 
 // ProcessFrame processes a frame
@@ -147,7 +146,7 @@ func (p *AudioCameraOutputProcessor) ProcessFrame(frame frames.Frame, direction 
 	case *achatbot_frames.TransportMessageFrame, *frames.TextFrame, *achatbot_frames.AnimationAudioRawFrame:
 		err := p.transportWriter.WriteFrame(f)
 		if err != nil {
-			slog.Error(fmt.Sprintf("Error Write %T", f), "error", err)
+			logger.Error(fmt.Sprintf("Error Write %T", f), "error", err)
 		}
 	case *frames.AudioRawFrame:
 		p.handleAudio(f)
@@ -182,14 +181,14 @@ func (p *AudioCameraOutputProcessor) handleInterruptions(frame frames.Frame) {
 
 // botStartedSpeaking handles bot started speaking
 func (p *AudioCameraOutputProcessor) botStartedSpeaking() {
-	slog.Debug("Bot started speaking")
+	logger.Debug("Bot started speaking")
 	p.botSpeaking = true
 	p.PushFrame(achatbot_frames.NewBotStartedSpeakingFrame(), processors.FrameDirectionUpstream)
 }
 
 // botStoppedSpeaking handles bot stopped speaking
 func (p *AudioCameraOutputProcessor) botStoppedSpeaking() {
-	slog.Debug("Bot stopped speaking")
+	logger.Debug("Bot stopped speaking")
 	p.botSpeaking = false
 	p.PushFrame(achatbot_frames.NewBotStoppedSpeakingFrame(), processors.FrameDirectionUpstream)
 }
@@ -228,10 +227,10 @@ func (p *AudioCameraOutputProcessor) audioOutTaskHandler() {
 		case chunk := <-p.audioOutQueue:
 			err := p.transportWriter.WriteRawAudio(chunk)
 			if err != nil {
-				slog.Error(fmt.Sprintf("%s audio_out_task_handler error", p.Name()), "error", err)
+				logger.Error(fmt.Sprintf("%s audio_out_task_handler error", p.Name()), "error", err)
 			}
 		case <-p.ctx.Done():
-			slog.Info(fmt.Sprintf("%s audio_out_task_handler cancelled", p.Name()))
+			logger.Info(fmt.Sprintf("%s audio_out_task_handler cancelled", p.Name()))
 			return
 		case <-time.After(1 * time.Second):
 			// Timeout, continue the loop
@@ -292,7 +291,7 @@ func (p *AudioCameraOutputProcessor) drawImage(frame *frames.ImageRawFrame) erro
 			Height: imageInfo.Height,
 		}
 
-		slog.Warn(fmt.Sprintf("%v does not have the expected width: %d and height: %d, resizing would be needed", frame, p.params.CameraOutWidth, p.params.CameraOutHeight))
+		logger.Warn(fmt.Sprintf("%v does not have the expected width: %d and height: %d, resizing would be needed", frame, p.params.CameraOutWidth, p.params.CameraOutHeight))
 	}
 
 	err := p.transportWriter.WriteFrame(frame)
@@ -347,7 +346,7 @@ func (p *AudioCameraOutputProcessor) cameraOutTaskHandler() {
 	for {
 		select {
 		case <-p.ctx.Done():
-			slog.Info(fmt.Sprintf("%s camera_out_task_handler cancelled", p.Name()))
+			logger.Info(fmt.Sprintf("%s camera_out_task_handler cancelled", p.Name()))
 			return
 		default:
 			var err error
@@ -364,8 +363,24 @@ func (p *AudioCameraOutputProcessor) cameraOutTaskHandler() {
 			}
 
 			if err != nil {
-				slog.Error("Error writing to camera", "error", err)
+				logger.Error("Error writing to camera", "error", err)
 			}
 		}
 	}
+}
+
+// Cleanup performs cleanup operations
+func (p *AudioCameraOutputProcessor) Cleanup() {
+	// Close the audio output queue
+	if p.audioOutQueue != nil {
+		close(p.audioOutQueue)
+		p.audioOutQueue = nil
+	}
+	// Close the camera output queue
+	if p.cameraOutQueue != nil {
+		close(p.cameraOutQueue)
+		p.cameraOutQueue = nil
+	}
+	p.AsyncFrameProcessor.Cleanup()
+	logger.Info("AudioCameraOutputProcessor Cleanup Done")
 }

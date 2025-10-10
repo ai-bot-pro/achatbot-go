@@ -4,7 +4,7 @@ import "achatbot/pkg/common"
 
 // AudioCameraParams represents audio and camera parameters configuration
 type AudioCameraParams struct {
-	*AudioParams
+	*AudioVADParams
 
 	// Camera output parameters
 	CameraOutEnabled   bool `json:"camera_out_enabled"`
@@ -20,7 +20,7 @@ type AudioCameraParams struct {
 // NewAudioCameraParams creates a new AudioCameraParams with default values
 func NewAudioCameraParams() *AudioCameraParams {
 	return &AudioCameraParams{
-		AudioParams:        NewAudioParams(),
+		AudioVADParams:     NewAudioVADParams(),
 		CameraOutEnabled:   false,
 		CameraOutWidth:     640,
 		CameraOutHeight:    480,
@@ -28,6 +28,12 @@ func NewAudioCameraParams() *AudioCameraParams {
 		CameraOutIsLive:    false,
 		TransportWriter:    nil,
 	}
+}
+
+// WithAudioVADParams sets audio VAD parameters
+func (p *AudioCameraParams) WithAudioVADParams(AudioVADParams *AudioVADParams) *AudioCameraParams {
+	p.AudioVADParams = AudioVADParams
+	return p
 }
 
 // WithCameraOutEnabled sets camera output enabled

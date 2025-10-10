@@ -32,24 +32,6 @@ func NewAudioParams() *AudioParams {
 	}
 }
 
-// AudioVADParams extends AudioParams with VAD-specific parameters
-type AudioVADParams struct {
-	AudioParams
-	VADEnabled          bool `json:"vad_enabled"`
-	VADAudioPassthrough bool `json:"vad_audio_passthrough"`
-	VADAnalyzer         common.IVADAnalyzer
-}
-
-// NewAudioVADParams creates a new AudioVADParams with default values
-func NewAudioVADParams() *AudioVADParams {
-	return &AudioVADParams{
-		AudioParams:         *NewAudioParams(),
-		VADEnabled:          false,
-		VADAudioPassthrough: false,
-		VADAnalyzer:         nil,
-	}
-}
-
 // WithAudioOutEnabled sets audio output enabled
 func (p *AudioParams) WithAudioOutEnabled(enabled bool) *AudioParams {
 	p.AudioOutEnabled = enabled
@@ -107,6 +89,30 @@ func (p *AudioParams) WithAudioInChannels(channels int) *AudioParams {
 // WithAudioInSampleWidth sets audio input sample width
 func (p *AudioParams) WithAudioInSampleWidth(width int) *AudioParams {
 	p.AudioInSampleWidth = width
+	return p
+}
+
+// AudioVADParams extends AudioParams with VAD-specific parameters
+type AudioVADParams struct {
+	*AudioParams
+	VADEnabled          bool `json:"vad_enabled"`
+	VADAudioPassthrough bool `json:"vad_audio_passthrough"`
+	VADAnalyzer         common.IVADAnalyzer
+}
+
+// NewAudioVADParams creates a new AudioVADParams with default values
+func NewAudioVADParams() *AudioVADParams {
+	return &AudioVADParams{
+		AudioParams:         NewAudioParams(),
+		VADEnabled:          false,
+		VADAudioPassthrough: false,
+		VADAnalyzer:         nil,
+	}
+}
+
+// WithAudioParams sets audio parameters
+func (p *AudioVADParams) WithAudioParams(AudioParams *AudioParams) *AudioVADParams {
+	p.AudioParams = AudioParams
 	return p
 }
 
