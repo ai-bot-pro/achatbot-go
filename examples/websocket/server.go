@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"reflect"
 	"sync"
 	"syscall"
 	"time"
@@ -22,7 +23,9 @@ import (
 	"achatbot/pkg/modules/speech/vad_analyzer"
 	"achatbot/pkg/params"
 	achatbot_processors "achatbot/pkg/processors"
+	"achatbot/pkg/processors/aggregators"
 	"achatbot/pkg/transports"
+	achatbot_frames "achatbot/pkg/types/frames"
 )
 
 // Upgrader for upgrading HTTP connections to WebSocket connections
@@ -74,18 +77,13 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	// vad provider
 	sherpaOnnxProvider := vad_analyzer.NewSherpaOnnxProvider(sherpa.VadModelConfig{
-		SileroVad: sherpa.SileroVadModelConfig{
-			Model:              "./models/silero_vad.onnx",
-			Threshold:          0.5,
-			MinSilenceDuration: 0.5,
-			MinSpeechDuration:  0.25,
-			MaxSpeechDuration:  1.0,
-		},
+		//SileroVad: vad_analyzer.NewDefaultSherpaOnnxSileroVadModelConfig(),
+		TenVad:     vad_analyzer.NewDefaultSherpaOnnxTenVadModelConfig(), // small and quick than silero
 		SampleRate: consts.DefaultRate,
 		NumThreads: 1,
 		Provider:   "cpu",
 		Debug:      0,
-	}, 10)
+	}, 100)
 	vadAnalyzer := vad_analyzer.NewVADAnalyzer(params.NewVADAnalyzerArgs(), sherpaOnnxProvider)
 
 	// Wrap the connection to implement our interface
@@ -120,17 +118,22 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	// 2. Create a simple pipeline with the async processor
 	myPipeline := pipeline.NewPipelineWithVerbose(
 		[]processors.IFrameProcessor{
-			processors.NewFrameLoggerProcessor(
-				"WS_LOGGER",
-				"EndFrameFilter",
-				[]frames.Frame{},
-				[]frames.Frame{frames.EndFrame{}, frames.CancelFrame{}},
+			processors.NewDefaultFrameLoggerProcessorWithIncludeFrame(
+				[]frames.Frame{&frames.StartFrame{}, &frames.EndFrame{}, &frames.CancelFrame{}},
 			),
+			//processors.NewDefaultFrameLoggerProcessorWithIncludeFrame([]frames.Frame{&achatbot_frames.BotSpeakingFrame{}}),
+
 			ws_transport.InputProcessor(),
+			aggregators.NewAudioResponseAggregatorWithAccumulate(
+				reflect.TypeOf(&achatbot_frames.UserStartedSpeakingFrame{}),
+				reflect.TypeOf(&achatbot_frames.UserStoppedSpeakingFrame{}),
+				reflect.TypeOf(&achatbot_frames.VADStateAudioRawFrame{}),
+			),
+			achatbot_processors.NewAudioSaveProcessor("user_speak", "./records", true),
 			ws_transport.OutputProcessor(),
 		},
 		nil, nil,
-		true,
+		false,
 	)
 	logger.Info(myPipeline.String())
 

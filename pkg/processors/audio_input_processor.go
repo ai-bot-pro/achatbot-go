@@ -14,6 +14,7 @@ import (
 	"achatbot/pkg/params"
 	"achatbot/pkg/types"
 	achatbot_frames "achatbot/pkg/types/frames"
+	"achatbot/pkg/utils"
 )
 
 // AudioVADInputProcessor processes audio input with VAD
@@ -26,6 +27,7 @@ type AudioVADInputProcessor struct {
 	audioTask     *sync.WaitGroup
 	pushFrameTask *sync.WaitGroup
 	vadAnalyzer   common.IVADAnalyzer
+	vadRingBuffer *utils.RingBuffer // buffer audio byte
 }
 
 // NewAudioVADInputProcessor creates a new AudioVADInputProcessor
@@ -37,10 +39,13 @@ func NewAudioVADInputProcessor(name string, params *params.AudioVADParams) *Audi
 		params:              params,
 		ctx:                 ctx,
 		cancel:              cancel,
-		audioInQueue:        make(chan *frames.AudioRawFrame, 100), // buffer size
+		audioInQueue:        make(chan *frames.AudioRawFrame, 1024), // buffer size
 		audioTask:           &sync.WaitGroup{},
 		pushFrameTask:       &sync.WaitGroup{},
 		vadAnalyzer:         params.VADAnalyzer,
+		vadRingBuffer: utils.NewRingBuffer(
+			params.AudioInBufferSecs * params.AudioParams.AudioInSampleRate * params.AudioParams.AudioInSampleWidth,
+		),
 	}
 }
 
@@ -134,36 +139,42 @@ func (p *AudioVADInputProcessor) audioTaskHandler() {
 				return
 			}
 
-			var vadStateFrame *achatbot_frames.VADStateAudioRawFrame
-			var userInterruptionFrame frames.Frame
+			// Get audio frame to ringbuffer and get vad chunk (window_size*2 bytes) to process
+			p.vadRingBuffer.PushBytes(audioFrame.Audio)
+			bytesChunkSize := p.vadAnalyzer.GetWindowSize() * p.params.AudioInSampleWidth
+			for p.vadRingBuffer.Size() >= bytesChunkSize {
+				chunkBytes := p.vadRingBuffer.PopBytes(bytesChunkSize)
 
-			// Check VAD and push event if necessary
-			if p.params.VADEnabled {
-				vadStateFrame, userInterruptionFrame = p.handleVAD(audioFrame.Audio, vadState)
-				if vadStateFrame != nil {
-					vadState = vadStateFrame.State
+				var vadStateFrame *achatbot_frames.VADStateAudioRawFrame
+				var userInterruptionFrame frames.Frame
+
+				// Check VAD and push event if necessary
+				if p.params.VADEnabled {
+					vadStateFrame, userInterruptionFrame = p.handleVAD(chunkBytes, vadState)
+					if vadStateFrame != nil {
+						vadState = vadStateFrame.State
+					}
+				}
+
+				// Handle user started speaking
+				if _, ok := userInterruptionFrame.(*achatbot_frames.UserStartedSpeakingFrame); ok {
+					p.handleInterruptions(userInterruptionFrame, true)
+				}
+
+				// Push audio downstream if passthrough
+				if p.params.VADEnabled && p.params.VADAudioPassthrough {
+					if vadStateFrame != nil && len(vadStateFrame.Audio) > 0 {
+						p.PushDownstreamFrame(vadStateFrame)
+					}
+				} else {
+					p.PushDownstreamFrame(audioFrame)
+				}
+
+				// Handle user stopped speaking
+				if _, ok := userInterruptionFrame.(*achatbot_frames.UserStoppedSpeakingFrame); ok {
+					p.handleInterruptions(userInterruptionFrame, true)
 				}
 			}
-
-			// Handle user started speaking
-			if _, ok := userInterruptionFrame.(*achatbot_frames.UserStartedSpeakingFrame); ok {
-				p.handleInterruptions(userInterruptionFrame, true)
-			}
-
-			// Push audio downstream if passthrough
-			if p.params.VADEnabled && p.params.VADAudioPassthrough {
-				if vadStateFrame != nil && len(vadStateFrame.Audio) > 0 {
-					p.PushDownstreamFrame(vadStateFrame)
-				}
-			} else {
-				p.PushDownstreamFrame(audioFrame)
-			}
-
-			// Handle user stopped speaking
-			if _, ok := userInterruptionFrame.(*achatbot_frames.UserStoppedSpeakingFrame); ok {
-				p.handleInterruptions(userInterruptionFrame, true)
-			}
-
 		case <-p.ctx.Done():
 			logger.Info(fmt.Sprintf("%s audio_task_handler cancelled", p.Name()))
 			return
@@ -180,8 +191,7 @@ func (p *AudioVADInputProcessor) vadAnalyze(audioBytes []byte) *achatbot_frames.
 	}
 
 	if p.vadAnalyzer != nil {
-		result := p.vadAnalyzer.AnalyzeAudio(audioBytes)
-		vadStateFrame = result
+		vadStateFrame = p.vadAnalyzer.AnalyzeAudio(audioBytes)
 	}
 
 	return vadStateFrame

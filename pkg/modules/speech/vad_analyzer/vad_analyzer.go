@@ -4,6 +4,7 @@ import (
 	"math"
 
 	pipelineframes "github.com/weedge/pipeline-go/pkg/frames"
+	"github.com/weedge/pipeline-go/pkg/logger"
 
 	"achatbot/pkg/common"
 	"achatbot/pkg/params"
@@ -22,9 +23,6 @@ type VADAnalyzer struct {
 	vadStartingCount         int
 	vadStoppingCount         int
 	vadState                 types.VADState
-	vadBuffer                []byte
-	smoothingFactor          float64
-	prevVolume               float64
 	speechID                 int
 	accumulateSpeechBytesLen int
 	isFinal                  bool
@@ -40,14 +38,11 @@ type VADAnalyzer struct {
 func NewVADAnalyzer(args *params.VADAnalyzerArgs, vcp common.IVoiceConfidenceProvider) *VADAnalyzer {
 	analyzer := &VADAnalyzer{
 		args:                     args,
-		vadBuffer:                make([]byte, 0),
-		smoothingFactor:          0.2,
-		prevVolume:               0,
 		vadState:                 types.Quiet,
 		IVoiceConfidenceProvider: vcp,
 	}
 
-	analyzer.vadFrames = analyzer.numFramesRequired()
+	analyzer.vadFrames = analyzer.GetWindowSize()
 	analyzer.vadFramesNumBytes = analyzer.vadFrames * analyzer.args.NumChannels * analyzer.args.SampleWidth
 	analyzer.sampleNumBytes = analyzer.args.SampleRate * analyzer.args.NumChannels * analyzer.args.SampleWidth
 
@@ -70,7 +65,7 @@ func (b *VADAnalyzer) Reset() {
 	b.startAtS = 0.0
 	b.curAtS = 0.0
 	b.endAtS = 0.0
-	b.vadBuffer = make([]byte, 0)
+	b.IVoiceConfidenceProvider.Reset()
 }
 
 func (b *VADAnalyzer) GetSampleRate() int {
@@ -82,8 +77,8 @@ func (b *VADAnalyzer) Release() {
 	b.IVoiceConfidenceProvider.Release()
 }
 
-// numFramesRequired 计算需要的帧数
-func (b *VADAnalyzer) numFramesRequired() int {
+// GetWindowSize 计算需要的帧数
+func (b *VADAnalyzer) GetWindowSize() int {
 	_, windowSize := b.IVoiceConfidenceProvider.GetSampleInfo()
 	return windowSize
 }
@@ -95,37 +90,15 @@ func (b *VADAnalyzer) isActiveSpeech(audio []byte) bool {
 
 // AnalyzeAudio 分析音频
 func (b *VADAnalyzer) AnalyzeAudio(buffer []byte) *localframes.VADStateAudioRawFrame {
-	// 追加缓冲区
-	b.vadBuffer = append(b.vadBuffer, buffer...)
+	if len(buffer) != b.vadFramesNumBytes {
+		logger.Warnf("VADAnalyzer: buffer size MisMatch: %d != %d", len(buffer), b.vadFramesNumBytes)
+		return nil
+	}
+
 	b.curAtS = math.Round(float64(b.accumulateSpeechBytesLen)/float64(b.sampleNumBytes)*1000) / 1000
 	b.accumulateSpeechBytesLen += len(buffer)
 
-	numRequiredBytes := b.vadFramesNumBytes
-	if len(b.vadBuffer) < numRequiredBytes {
-		// 返回当前状态但不处理音频数据
-		return &localframes.VADStateAudioRawFrame{
-			AudioRawFrame: &pipelineframes.AudioRawFrame{
-				DataFrame:   pipelineframes.NewDataFrameWithName("VADStateAudioRawFrame"),
-				Audio:       make([]byte, 0),
-				SampleRate:  b.args.SampleRate,
-				NumChannels: b.args.NumChannels,
-				SampleWidth: b.args.SampleWidth,
-				NumFrames:   0,
-			},
-			State:    b.vadState,
-			SpeechID: b.speechID,
-			IsFinal:  b.isFinal,
-			StartAtS: b.startAtS,
-			CurAtS:   b.curAtS,
-			EndAtS:   b.endAtS,
-		}
-	}
-
-	audioBytes := make([]byte, numRequiredBytes)
-	copy(audioBytes, b.vadBuffer[:numRequiredBytes])
-	b.vadBuffer = b.vadBuffer[numRequiredBytes:]
-
-	speaking := b.isActiveSpeech(audioBytes)
+	speaking := b.isActiveSpeech(buffer)
 	if speaking {
 		switch b.vadState {
 		case types.Quiet:
@@ -174,11 +147,11 @@ func (b *VADAnalyzer) AnalyzeAudio(buffer []byte) *localframes.VADStateAudioRawF
 	vadStateAudioRawFrame := &localframes.VADStateAudioRawFrame{
 		AudioRawFrame: &pipelineframes.AudioRawFrame{
 			DataFrame:   pipelineframes.NewDataFrameWithName("VADStateAudioRawFrame"),
-			Audio:       audioBytes,
+			Audio:       buffer,
 			SampleRate:  b.args.SampleRate,
 			NumChannels: b.args.NumChannels,
 			SampleWidth: b.args.SampleWidth,
-			NumFrames:   len(audioBytes) / (b.args.NumChannels * b.args.SampleWidth),
+			NumFrames:   len(buffer) / (b.args.NumChannels * b.args.SampleWidth),
 		},
 		State:    b.vadState,
 		SpeechID: b.speechID,

@@ -9,6 +9,7 @@ type VADAnalyzerArgs struct {
 	SampleWidth int     `json:"sample_width"`
 	StartSecs   float64 `json:"start_secs"`
 	StopSecs    float64 `json:"stop_secs"`
+	BufferSecs  int     `json:"buffer_secs"`
 }
 
 // NewVADAnalyzerArgs 创建一个新的VADAnalyzerArgs实例，带有默认值
@@ -19,6 +20,7 @@ func NewVADAnalyzerArgs() *VADAnalyzerArgs {
 		SampleWidth: consts.DefaultSampleWidth,
 		StartSecs:   0.032, // default use SileroVAD 32ms start once for 16000 samples, 512 frames per second, accumulate 1 times
 		StopSecs:    0.32,  // default use SileroVAD  32ms stop once for 16000 samples, 512 frames per second, accumulate 10 times
+		BufferSecs:  3,     // buffer samples size = BufferSecs * SampleRate
 	}
 }
 

@@ -17,6 +17,9 @@ type IVADAnalyzer interface {
 	// GetSampleRate 返回 VAD 的采样率。
 	GetSampleRate() int
 
+	// GetWindowSize 返回 VAD 的采样窗口大小。
+	GetWindowSize() int
+
 	// Release 释放资源。
 	Release()
 }
@@ -26,11 +29,17 @@ type IVoiceConfidenceProvider interface {
 	// IsActiveSpeech 判断当前音频是否是活跃的语音。
 	IsActiveSpeech(audio []byte) bool
 
+	// Reset 重置 VAD 模型状态(单轮识别)。
+	Reset()
+
 	// Release 释放资源。
 	Release()
 
 	// GetSampleInfo 返回语音置信度提供者的采样率信息和采样窗口大小。
 	GetSampleInfo() (int, int)
+
+	// Name 返回语音置信度提供者的名称。
+	Name() string
 }
 
 // We'll use the standard net/http package for WebSocket support

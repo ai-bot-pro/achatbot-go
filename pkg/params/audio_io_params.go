@@ -2,6 +2,7 @@ package params
 
 import (
 	"achatbot/pkg/common"
+	"achatbot/pkg/consts"
 	"fmt"
 )
 
@@ -17,18 +18,20 @@ type AudioParams struct {
 	AudioInSampleRate         int  `json:"audio_in_sample_rate"`
 	AudioInChannels           int  `json:"audio_in_channels"`
 	AudioInSampleWidth        int  `json:"audio_in_sample_width"`
+	AudioInBufferSecs         int  `json:"audio_in_buffer_secs"`
 }
 
 // NewAudioParams creates a new AudioParams with default values
 func NewAudioParams() *AudioParams {
 	return &AudioParams{
-		AudioOutSampleRate:  16000, // Default RATE
-		AudioOutChannels:    1,     // Default CHANNELS
-		AudioOutSampleWidth: 2,     // Default SAMPLE_WIDTH
-		AudioOut10msChunks:  2,
-		AudioInSampleRate:   16000, // Default RATE
-		AudioInChannels:     1,     // Default CHANNELS
-		AudioInSampleWidth:  2,     // Default SAMPLE_WIDTH
+		AudioOutSampleRate:  consts.DefaultRate,        // Default rate
+		AudioOutChannels:    consts.DefaultChannels,    // Default channels
+		AudioOutSampleWidth: consts.DefaultSampleWidth, // Default sample_width
+		AudioOut10msChunks:  consts.Default10msChunks,  // Default 10ms chunks num
+		AudioInSampleRate:   consts.DefaultRate,        // Default rate
+		AudioInChannels:     consts.DefaultChannels,    // Default channels
+		AudioInSampleWidth:  consts.DefaultSampleWidth, // Default sample_width
+		AudioInBufferSecs:   consts.DefaultBufferSecs,  // Default buffer_secs
 	}
 }
 

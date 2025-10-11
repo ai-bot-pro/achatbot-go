@@ -97,3 +97,21 @@ func NewTransportMessageFrame(message []byte) *TransportMessageFrame {
 		Message:   message,
 	}
 }
+
+type PathAudioRawFrame struct {
+	*pipelineframes.AudioRawFrame
+	Path string `json:"path"`
+}
+
+// NewPathAudioRawFrame creates a new PathAudioRawFrame
+func NewPathAudioRawFrame(audio []byte, sampleRate, numChannels, sampleWidth int, path string) *PathAudioRawFrame {
+	return &PathAudioRawFrame{
+		AudioRawFrame: pipelineframes.NewAudioRawFrame(audio, sampleRate, numChannels, sampleWidth),
+		Path:          path,
+	}
+}
+
+// String implements string representation of PathAudioRawFrame
+func (f *PathAudioRawFrame) String() string {
+	return fmt.Sprintf("%s path: %s", f.AudioRawFrame.String(), f.Path)
+}
