@@ -20,6 +20,7 @@ import (
 
 	"achatbot/pkg/consts"
 	"achatbot/pkg/modules/speech/asr"
+	"achatbot/pkg/modules/speech/tts"
 	"achatbot/pkg/modules/speech/vad_analyzer"
 	"achatbot/pkg/params"
 	achatbot_processors "achatbot/pkg/processors"
@@ -110,6 +111,10 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	asrProvider := asr.NewSherpaOnnxProvider(asr.NewDefaultSherpaOnnxOfflineRecognizerConfig())
 	asrProcessor := achatbot_processors.NewASRProcessor(asrProvider)
 
+	// Set TTS Processor
+	ttsProvider := tts.NewSherpaOnnxProvider(tts.NewDefaultSherpaOnnxOfflineTtsConfig(), 45, 1.0, "kokoroTTS")
+	ttsProcessor := achatbot_processors.NewTTSProcessor(ttsProvider)
+
 	// 1. Create the WebSocket server input processor
 	ws_transport := transports.NewWebsocketTransport(
 		wsConn,
@@ -132,8 +137,11 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			),
 			processors.NewDefaultFrameLoggerProcessorWithIncludeFrame([]frames.Frame{&frames.AudioRawFrame{}, &achatbot_frames.VADStateAudioRawFrame{}}),
 			achatbot_processors.NewAudioSaveProcessor("user_speak", consts.RECORDS_DIR, true),
-			asrProcessor,
+			//asrProcessor.WithPassRawAudio(true),
+			asrProcessor.WithPassRawAudio(false),
 			processors.NewDefaultFrameLoggerProcessorWithIncludeFrame([]frames.Frame{&frames.TextFrame{}}),
+			ttsProcessor.WithPassRawText(true),
+			processors.NewDefaultFrameLoggerProcessorWithIncludeFrame([]frames.Frame{&frames.AudioRawFrame{}}),
 			ws_transport.OutputProcessor(),
 		},
 		nil, nil,

@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 
 	sherpa "github.com/k2-fsa/sherpa-onnx-go/sherpa_onnx"
+	"github.com/weedge/pipeline-go/pkg/logger"
 
 	"achatbot/pkg/utils"
 )
@@ -139,7 +140,14 @@ func NewSherpaOnnxProvider(config sherpa.OfflineRecognizerConfig) *SherpaOnnxPro
 		config: config,
 	}
 	provider.recognizer = sherpa.NewOfflineRecognizer(&config)
+	if provider.recognizer == nil {
+		logger.Error("Fail to create ASR")
+		return nil
+	}
+
 	provider.sampleRate = config.FeatConfig.SampleRate
+
+	logger.Info("ASR NewSherpaOnnxProvider Done", "name", provider.name)
 
 	return provider
 }

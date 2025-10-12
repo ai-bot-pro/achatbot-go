@@ -56,6 +56,26 @@ type IASRProvider interface {
 	Name() string
 }
 
+// ------------------------------------------------------------
+
+// ITTSProvider 文本合成语音提供者接口
+type ITTSProvider interface {
+	// Synthesize 文本合成语音
+	Synthesize(text string) []byte
+
+	// GetSampleInfo 返回合成语音采样率信息(sample_rate), 通道数(channels), sample_width/bit_depth(样本宽度/位深度)
+	GetSampleInfo() (int, int, int)
+
+	// SetPromptAudio 设置Prompt Audio shot示例样本去生成对应特征的声音
+	SetPromptAudio(string, []byte) error
+
+	// Release 释放资源。
+	Release()
+
+	// Name 返回文本合成语音提供者的名称。
+	Name() string
+}
+
 // --------------------------------------------------------------------
 
 // We'll use the standard net/http package for WebSocket support
