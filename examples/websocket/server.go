@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	sherpa "github.com/k2-fsa/sherpa-onnx-go/sherpa_onnx"
 	"github.com/weedge/pipeline-go/pkg/frames"
 	"github.com/weedge/pipeline-go/pkg/logger"
 	"github.com/weedge/pipeline-go/pkg/pipeline"
@@ -20,6 +19,7 @@ import (
 	"github.com/weedge/pipeline-go/pkg/serializers"
 
 	"achatbot/pkg/consts"
+	"achatbot/pkg/modules/speech/asr"
 	"achatbot/pkg/modules/speech/vad_analyzer"
 	"achatbot/pkg/params"
 	achatbot_processors "achatbot/pkg/processors"
@@ -76,14 +76,11 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	defer conn.Close()
 
 	// vad provider
-	sherpaOnnxProvider := vad_analyzer.NewSherpaOnnxProvider(sherpa.VadModelConfig{
-		//SileroVad: vad_analyzer.NewDefaultSherpaOnnxSileroVadModelConfig(),
-		TenVad:     vad_analyzer.NewDefaultSherpaOnnxTenVadModelConfig(), // small and quick than silero
-		SampleRate: consts.DefaultRate,
-		NumThreads: 1,
-		Provider:   "cpu",
-		Debug:      0,
-	}, 100)
+	sherpaOnnxProvider := vad_analyzer.NewSherpaOnnxProvider(
+		//vad_analyzer.NewDefaultSherpaOnnxVadModelConfig("ten"),
+		vad_analyzer.NewDefaultSherpaOnnxVadModelConfig("silero"),
+		100,
+	)
 	vadAnalyzer := vad_analyzer.NewVADAnalyzer(params.NewVADAnalyzerArgs(), sherpaOnnxProvider)
 
 	// Wrap the connection to implement our interface
@@ -109,6 +106,10 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	audioCameraParams.WithTransportWriter(transportWriter).WithAudioOutEnabled(true).
 		WithAudioOutSampleWidth(consts.DefaultSampleWidth).WithAudioOutSampleRate(consts.DefaultRate).WithAudioOutChannels(consts.DefaultChannels)
 
+	// Set ASR Processor
+	asrProvider := asr.NewSherpaOnnxProvider(asr.NewDefaultSherpaOnnxOfflineRecognizerConfig())
+	asrProcessor := achatbot_processors.NewASRProcessor(asrProvider)
+
 	// 1. Create the WebSocket server input processor
 	ws_transport := transports.NewWebsocketTransport(
 		wsConn,
@@ -129,7 +130,10 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 				reflect.TypeOf(&achatbot_frames.UserStoppedSpeakingFrame{}),
 				reflect.TypeOf(&achatbot_frames.VADStateAudioRawFrame{}),
 			),
-			achatbot_processors.NewAudioSaveProcessor("user_speak", "./records", true),
+			processors.NewDefaultFrameLoggerProcessorWithIncludeFrame([]frames.Frame{&frames.AudioRawFrame{}, &achatbot_frames.VADStateAudioRawFrame{}}),
+			achatbot_processors.NewAudioSaveProcessor("user_speak", consts.RECORDS_DIR, true),
+			asrProcessor,
+			processors.NewDefaultFrameLoggerProcessorWithIncludeFrame([]frames.Frame{&frames.TextFrame{}}),
 			ws_transport.OutputProcessor(),
 		},
 		nil, nil,

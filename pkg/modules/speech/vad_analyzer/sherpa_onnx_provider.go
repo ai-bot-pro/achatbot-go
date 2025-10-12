@@ -46,6 +46,20 @@ func NewDefaultSherpaOnnxTenVadModelConfig() sherpa.TenVadModelConfig {
 		MaxSpeechDuration: 10,
 	}
 }
+func NewDefaultSherpaOnnxVadModelConfig(name string) sherpa.VadModelConfig {
+	conf := sherpa.VadModelConfig{
+		TenVad:     NewDefaultSherpaOnnxTenVadModelConfig(), // small and quick than silero
+		SampleRate: consts.DefaultRate,
+		NumThreads: 1,
+		Provider:   "cpu",
+		Debug:      0,
+	}
+	if name == "silero" {
+		conf.SileroVad = NewDefaultSherpaOnnxSileroVadModelConfig()
+	}
+
+	return conf
+}
 
 // https://github.com/k2-fsa/sherpa-onnx/blob/v1.12.14/sherpa-onnx/csrc/vad-model-config.h
 // https://github.com/k2-fsa/sherpa-onnx/blob/v1.12.14/sherpa-onnx/csrc/voice-activity-detector.cc

@@ -42,6 +42,22 @@ type IVoiceConfidenceProvider interface {
 	Name() string
 }
 
+// ------------------------------------------------------------
+
+// IASRProvider 语音识别提供者接口
+type IASRProvider interface {
+	// Transcribe 语音转录文本
+	Transcribe(audio []byte) string
+
+	// Release 释放资源。
+	Release()
+
+	// Name 返回语音识别提供者的名称。
+	Name() string
+}
+
+// --------------------------------------------------------------------
+
 // We'll use the standard net/http package for WebSocket support
 // You may need to add the gorilla/websocket dependency or use standard library
 // For now, we'll define a generic interface

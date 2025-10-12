@@ -179,6 +179,7 @@ func (p *SaveAllAudioProcessor) ProcessFrame(frame frames.Frame, direction proce
 
 // save saves accumulated audio bytes to a file
 func (p *SaveAllAudioProcessor) save() error {
+	// todo: taskpool to do i/o tasks
 	if len(p.audioBytes) == 0 {
 		logger.Info("No audio bytes to save")
 		return nil // Nothing to save
