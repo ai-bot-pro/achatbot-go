@@ -4,6 +4,8 @@ import (
 	"achatbot/pkg/common"
 	achatbot_params "achatbot/pkg/params"
 	achabot_processors "achatbot/pkg/processors"
+
+	"github.com/weedge/pipeline-go/pkg/logger"
 )
 
 // WebsocketTransport 实现了 WebSocket 传输层，组合 EventHandlerManager 成员和方法
@@ -53,6 +55,8 @@ func NewWebsocketTransport(
 	// 注册支持的事件处理器
 	transport.RegisterEventHandler("on_client_connected")
 	transport.RegisterEventHandler("on_client_disconnected")
+
+	logger.Infof("WebsocketServerTransport created with params: %s", params.String())
 
 	return transport
 }

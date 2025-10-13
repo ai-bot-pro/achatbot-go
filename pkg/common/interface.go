@@ -29,6 +29,9 @@ type IVoiceConfidenceProvider interface {
 	// IsActiveSpeech 判断当前音频是否是活跃的语音。
 	IsActiveSpeech(audio []byte) bool
 
+	// Warmup 预热
+	Warmup()
+
 	// Reset 重置 VAD 模型状态(单轮识别)。
 	Reset()
 
@@ -49,6 +52,9 @@ type IASRProvider interface {
 	// Transcribe 语音转录文本
 	Transcribe(audio []byte) string
 
+	// Warmup 预热
+	Warmup()
+
 	// Release 释放资源。
 	Release()
 
@@ -62,6 +68,9 @@ type IASRProvider interface {
 type ITTSProvider interface {
 	// Synthesize 文本合成语音
 	Synthesize(text string) []byte
+
+	// Warmup 预热
+	Warmup()
 
 	// GetSampleInfo 返回合成语音采样率信息(sample_rate), 通道数(channels), sample_width/bit_depth(样本宽度/位深度)
 	GetSampleInfo() (int, int, int)

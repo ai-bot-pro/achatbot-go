@@ -1,5 +1,13 @@
 package utils
 
+import "math"
+
+const floatEqualityThreshold = 1e-6
+
+func floatEquals(a, b float32) bool {
+	return math.Abs(float64(a-b)) <= floatEqualityThreshold
+}
+
 // SamplesInt16ToFloat converts a byte slice of int16 values to a slice of float32 samples
 func SamplesInt16ToFloat(inSamples []byte) []float32 {
 	numSamples := len(inSamples) / 2

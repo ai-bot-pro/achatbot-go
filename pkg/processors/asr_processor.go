@@ -11,20 +11,18 @@ import (
 
 type ASRProcessor struct {
 	*processors.AsyncFrameProcessor
-	provider     common.IASRProvider
-	passRawAudio bool
+	provider common.IASRProvider
 }
 
 func NewASRProcessor(provider common.IASRProvider) *ASRProcessor {
 	return &ASRProcessor{
 		AsyncFrameProcessor: processors.NewAsyncFrameProcessor("ASRProcessor"),
 		provider:            provider,
-		passRawAudio:        false,
 	}
 }
 
 func (p *ASRProcessor) WithPassRawAudio(passRawAudio bool) *ASRProcessor {
-	p.passRawAudio = passRawAudio
+	p.AsyncFrameProcessor = p.AsyncFrameProcessor.WithPassRawAudio(passRawAudio)
 	return p
 }
 
@@ -57,19 +55,19 @@ func (p *ASRProcessor) ProcessFrame(frame frames.Frame, direction processors.Fra
 		p.PushFrame(f, direction)
 		p.Cancel(f)
 	case *frames.AudioRawFrame:
-		if p.passRawAudio {
+		if p.PassRawAudio() {
 			p.QueueFrame(f, direction)
 		}
 		text := p.provider.Transcribe(f.Audio)
 		p.PushDownstreamFrame(frames.NewTextFrame(text))
 	case *achatbot_frames.VADStateAudioRawFrame:
-		if p.passRawAudio {
+		if p.PassRawAudio() {
 			p.QueueFrame(f, direction)
 		}
 		text := p.provider.Transcribe(f.Audio)
 		p.PushDownstreamFrame(frames.NewTextFrame(text))
 	case *achatbot_frames.AnimationAudioRawFrame:
-		if p.passRawAudio {
+		if p.PassRawAudio() {
 			p.QueueFrame(f, direction)
 		}
 		text := p.provider.Transcribe(f.Audio)

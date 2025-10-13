@@ -1,15 +1,8 @@
 package utils
 
 import (
-	"math"
 	"testing"
 )
-
-const floatEqualityThreshold = 1e-6
-
-func floatEquals(a, b float32) bool {
-	return math.Abs(float64(a-b)) <= floatEqualityThreshold
-}
 
 func TestSamplesInt16ToFloat(t *testing.T) {
 	tests := []struct {

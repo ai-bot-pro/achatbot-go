@@ -1,6 +1,8 @@
 package params
 
 import (
+	"fmt"
+
 	"github.com/weedge/pipeline-go/pkg/serializers"
 )
 
@@ -38,4 +40,8 @@ func (p *WebsocketServerParams) WithAudioOutAddWavHeader(AudioOutAddWavHeader bo
 func (p *WebsocketServerParams) WithAudioOutFrameSize(size int) *WebsocketServerParams {
 	p.AudioOutFrameSize = size
 	return p
+}
+
+func (p *WebsocketServerParams) String() string {
+	return fmt.Sprintf("WebsocketServerParams{AudioCameraParams: %s, AudioOutAddWavHeader: %t, AudioOutFrameSize: %d, Serializer: %s}", p.AudioCameraParams, p.AudioOutAddWavHeader, p.AudioOutFrameSize, p.Serializer)
 }

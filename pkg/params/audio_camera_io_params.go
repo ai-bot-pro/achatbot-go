@@ -1,6 +1,10 @@
 package params
 
-import "achatbot/pkg/common"
+import (
+	"achatbot/pkg/common"
+	"fmt"
+	"reflect"
+)
 
 // AudioCameraParams represents audio and camera parameters configuration
 type AudioCameraParams struct {
@@ -100,4 +104,16 @@ func (p *AudioCameraParams) IsCameraOutIsLive() bool {
 // GetTransportWriter returns the transport writer
 func (p *AudioCameraParams) GetTransportWriter() common.ITransportWriter {
 	return p.TransportWriter
+}
+
+func (p *AudioCameraParams) String() string {
+	return fmt.Sprintf("AudioCameraParams{AudioVADParams: %s, CameraOutEnabled: %t, CameraOutFramerate: %d, CameraOutHeight: %d, CameraOutIsLive: %t, CameraOutWidth: %d, TransportWriter: %s}",
+		p.AudioVADParams.String(),
+		p.CameraOutEnabled,
+		p.CameraOutFramerate,
+		p.CameraOutHeight,
+		p.CameraOutIsLive,
+		p.CameraOutWidth,
+		reflect.TypeOf(p.TransportWriter),
+	)
 }

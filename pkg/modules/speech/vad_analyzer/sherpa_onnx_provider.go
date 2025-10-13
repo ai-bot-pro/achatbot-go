@@ -111,6 +111,9 @@ func (s *SherpaOnnxProvider) IsActiveSpeech(audio []byte) bool {
 	return s.vad.IsSpeech()
 }
 
+func (s *SherpaOnnxProvider) Warmup() {
+}
+
 func (s *SherpaOnnxProvider) Name() string {
 	return s.name
 }

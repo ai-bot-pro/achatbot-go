@@ -114,6 +114,8 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	// Set TTS Processor
 	ttsProvider := tts.NewSherpaOnnxProvider(tts.NewDefaultSherpaOnnxOfflineTtsConfig(), 45, 1.0, "kokoroTTS")
 	ttsProcessor := achatbot_processors.NewTTSProcessor(ttsProvider)
+	outRate, outChannels, outSampleWidth := ttsProvider.GetSampleInfo()
+	audioCameraParams.WithAudioOutSampleWidth(outSampleWidth).WithAudioOutSampleRate(outRate).WithAudioOutChannels(outChannels)
 
 	// 1. Create the WebSocket server input processor
 	ws_transport := transports.NewWebsocketTransport(
@@ -137,11 +139,13 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			),
 			processors.NewDefaultFrameLoggerProcessorWithIncludeFrame([]frames.Frame{&frames.AudioRawFrame{}, &achatbot_frames.VADStateAudioRawFrame{}}),
 			achatbot_processors.NewAudioSaveProcessor("user_speak", consts.RECORDS_DIR, true),
-			//asrProcessor.WithPassRawAudio(true),
 			asrProcessor.WithPassRawAudio(false),
 			processors.NewDefaultFrameLoggerProcessorWithIncludeFrame([]frames.Frame{&frames.TextFrame{}}),
-			ttsProcessor.WithPassRawText(true),
+			ttsProcessor.WithPassText(true),
 			processors.NewDefaultFrameLoggerProcessorWithIncludeFrame([]frames.Frame{&frames.AudioRawFrame{}}),
+			//achatbot_processors.NewAudioResampleProcessor(audioCameraParams.AudioOutSampleRate),
+			//processors.NewDefaultFrameLoggerProcessorWithIncludeFrame([]frames.Frame{&frames.AudioRawFrame{}}),
+			achatbot_processors.NewAudioSaveProcessor("bot_speak", consts.RECORDS_DIR, true),
 			ws_transport.OutputProcessor(),
 		},
 		nil, nil,

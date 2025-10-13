@@ -10,8 +10,7 @@ import (
 
 type TTSProcessor struct {
 	*processors.AsyncFrameProcessor
-	provider    common.ITTSProvider
-	passRawText bool
+	provider common.ITTSProvider
 }
 
 func NewTTSProcessor(provider common.ITTSProvider) *TTSProcessor {
@@ -21,8 +20,8 @@ func NewTTSProcessor(provider common.ITTSProvider) *TTSProcessor {
 	}
 }
 
-func (p *TTSProcessor) WithPassRawText(passRawText bool) *TTSProcessor {
-	p.passRawText = passRawText
+func (p *TTSProcessor) WithPassText(passText bool) *TTSProcessor {
+	p.AsyncFrameProcessor = p.AsyncFrameProcessor.WithPassText(passText)
 	return p
 }
 
@@ -55,7 +54,7 @@ func (p *TTSProcessor) ProcessFrame(frame frames.Frame, direction processors.Fra
 		p.PushFrame(f, direction)
 		p.Cancel(f)
 	case *frames.TextFrame:
-		if p.passRawText {
+		if p.PassText() {
 			p.QueueFrame(f, direction)
 		}
 		audio := p.provider.Synthesize(f.Text)

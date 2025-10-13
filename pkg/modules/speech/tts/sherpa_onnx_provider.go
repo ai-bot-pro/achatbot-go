@@ -70,6 +70,7 @@ func NewSherpaOnnxProvider(config sherpa.OfflineTtsConfig, sid int, speed float3
 	provider.speed = speed
 	provider.name = name
 
+	provider.Warmup() // warm up and get sample rate
 	logger.Info("TTS NewSherpaOnnxProvider Done", "name", name, "sid", sid, "speed", speed)
 
 	return provider
@@ -79,6 +80,11 @@ func (p *SherpaOnnxProvider) Synthesize(text string) []byte {
 	generateAudio := p.tts.Generate(text, p.sid, float32(math.Max(float64(p.speed), 1e-6)))
 	p.sampleRate = generateAudio.SampleRate
 	return utils.SamplesFloatToInt16(generateAudio.Samples)
+}
+
+func (p *SherpaOnnxProvider) Warmup() {
+	generateAudio := p.tts.Generate("hi", p.sid, float32(math.Max(float64(p.speed), 1e-6)))
+	p.sampleRate = generateAudio.SampleRate
 }
 
 func (p *SherpaOnnxProvider) GetSampleInfo() (int, int, int) {

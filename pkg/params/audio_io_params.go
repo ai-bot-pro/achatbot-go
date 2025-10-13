@@ -251,7 +251,7 @@ func (p *AudioVADParams) Clone() *AudioVADParams {
 
 // String returns string representation of AudioParams
 func (p *AudioParams) String() string {
-	return fmt.Sprintf("AudioParams{OutEnabled: %t, OutRate: %d, OutCh: %d, OutWidth: %d, OutChunks: %d, InEnabled: %t, InPartEnabled: %t, InRate: %d, InCh: %d, InWidth: %d}",
+	return fmt.Sprintf("AudioParams{OutEnabled: %t, AudioOutSampleRate: %d, AudioOutChannels: %d, AudioOutSampleWidth: %d, OutChunks: %d, InEnabled: %t, InPartEnabled: %t, AudioInSampleRate: %d, AudioInChannels: %d, AudioInSampleWidth: %d}",
 		p.AudioOutEnabled, p.AudioOutSampleRate, p.AudioOutChannels, p.AudioOutSampleWidth,
 		p.AudioOut10msChunks, p.AudioInEnabled, p.AudioInParticipantEnabled,
 		p.AudioInSampleRate, p.AudioInChannels, p.AudioInSampleWidth)

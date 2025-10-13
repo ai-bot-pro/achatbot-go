@@ -162,6 +162,9 @@ func (p *SherpaOnnxProvider) Transcribe(data []byte) string {
 	return result.Text
 }
 
+func (p *SherpaOnnxProvider) Warmup() {
+}
+
 func (p *SherpaOnnxProvider) Release() {
 	sherpa.DeleteOfflineRecognizer(p.recognizer)
 }

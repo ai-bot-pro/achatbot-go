@@ -31,6 +31,9 @@ type AudioCameraOutputProcessor struct {
 	// Audio accumulation buffer for 16-bit samples to write out stream device
 	audioOutBuff []byte
 
+	// Out audio chunk size in bytes
+	audioChunkSize int
+
 	// These are the images that we should send to the camera at our desired framerate
 	cameraImages []*frames.ImageRawFrame
 
@@ -64,6 +67,12 @@ func NewAudioCameraOutputProcessor(name string, params *params.AudioCameraParams
 		cameraImages:        make([]*frames.ImageRawFrame, 0),
 		botSpeaking:         false,
 		transportWriter:     params.TransportWriter,
+	}
+
+	p.audioChunkSize = (p.params.AudioOutSampleRate / 100) * p.params.AudioOutChannels * 2 * p.params.AudioOut10msChunks
+	if p.audioChunkSize == 0 {
+		logger.Warn("audioChunkSize is 0, please check your audioOutSampleRate and audioOutChannels and audioOut10msChunks values in your config")
+		return nil
 	}
 
 	return p
@@ -200,10 +209,8 @@ func (p *AudioCameraOutputProcessor) handleAudio(frame *frames.AudioRawFrame) {
 	}
 
 	audio := frame.Audio
-	audioChunkSize := (p.params.AudioOutSampleRate / 100) * p.params.AudioOutChannels * 2 * p.params.AudioOut10msChunks
-
-	for i := 0; i < len(audio); i += audioChunkSize {
-		end := min(i+audioChunkSize, len(audio))
+	for i := 0; i < len(audio); i += p.audioChunkSize {
+		end := min(i+p.audioChunkSize, len(audio))
 		chunk := audio[i:end]
 
 		// Add chunk to queue
