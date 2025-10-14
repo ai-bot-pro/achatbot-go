@@ -64,6 +64,26 @@ type IASRProvider interface {
 
 // ------------------------------------------------------------
 
+// ILLMProvider 生成模型提供者接口
+type ILLMProvider interface {
+	// generate 生成文本token
+	Generate(prompt string) string
+
+	// chat 上下文chat_template 指令生成文本token
+	Chat(prompt string) string
+
+	// Warmup 预热
+	Warmup()
+
+	// Release 释放资源。
+	Release()
+
+	// Name 返回生成文本token提供者的名称。
+	Name() string
+}
+
+// ------------------------------------------------------------
+
 // ITTSProvider 文本合成语音提供者接口
 type ITTSProvider interface {
 	// Synthesize 文本合成语音
