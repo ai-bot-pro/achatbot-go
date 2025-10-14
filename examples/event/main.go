@@ -36,7 +36,7 @@ func main() {
 	}
 
 	// 添加多个事件处理函数
-	logoutHandlers := []interface{}{
+	logoutHandlers := []any{
 		func(manager *common.EventHandlerManager, username string) {
 			fmt.Printf("Logging logout event for user %s\n", username)
 		},

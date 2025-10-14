@@ -53,6 +53,17 @@ func NewDefaultSherpaOnnxOfflineTtsConfig() sherpa.OfflineTtsConfig {
 	return conf
 }
 
+const (
+	//kokoroTTS: 45->zf_xiaobei, 46->zf_xiaoni, 47->zf_xiaoxiao, 48->zf_xiaoyi, 49->zm_yunjian, 50->zm_yunxi, 51->zm_yunxia, 52->zm_yunyang
+	KokoroTTS_Speaker_ZF_XiaoBei  = 45
+	KokoroTTS_Speaker_ZF_XiaoNi   = 46
+	KokoroTTS_Speaker_ZF_XiaoXiao = 47
+	KokoroTTS_Speaker_ZF_XiaoYi   = 48
+	KokoroTTS_Speaker_ZM_YunJian  = 49
+	KokoroTTS_Speaker_ZM_YunXi    = 50
+	KokoroTTS_Speaker_ZM_YunYang  = 52
+)
+
 func NewSherpaOnnxProvider(config sherpa.OfflineTtsConfig, sid int, speed float32, name string) *SherpaOnnxProvider {
 	provider := &SherpaOnnxProvider{
 		config: config,

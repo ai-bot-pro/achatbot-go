@@ -30,6 +30,20 @@ func NewUserStoppedSpeakingFrame() *UserStoppedSpeakingFrame {
 	}
 }
 
+// TrunEndFrame indicates that the chat single turn is end
+type TurnEndFrame struct {
+	*pipelineframes.ControlFrame
+}
+
+// NewTurnEndFrame creates a new TurnEndFrame
+func NewTurnEndFrame() *TurnEndFrame {
+	return &TurnEndFrame{
+		ControlFrame: &pipelineframes.ControlFrame{
+			BaseFrame: pipelineframes.NewBaseFrameWithName("TurnEndFrame"),
+		},
+	}
+}
+
 // BotSpeakingFrame indicates that the bot is currently speaking
 type BotSpeakingFrame struct {
 	*pipelineframes.ControlFrame

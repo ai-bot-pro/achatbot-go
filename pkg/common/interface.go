@@ -3,6 +3,7 @@ package common
 import (
 	"github.com/weedge/pipeline-go/pkg/frames"
 
+	"achatbot/pkg/consts"
 	achatbot_frames "achatbot/pkg/types/frames"
 )
 
@@ -112,8 +113,8 @@ type ITTSProvider interface {
 // For now, we'll define a generic interface
 // IWebSocketConn defines the interface for WebSocket connections
 type IWebSocketConn interface {
-	ReadMessage() (messageType int, p []byte, err error)
-	WriteMessage(messageType int, data []byte) error
+	ReadMessage() (messageType consts.MessageType, p []byte, err error)
+	WriteMessage(messageType consts.MessageType, data []byte) error
 	Close() error
 }
 

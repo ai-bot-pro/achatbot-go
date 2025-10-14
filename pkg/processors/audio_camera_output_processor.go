@@ -220,7 +220,8 @@ func (p *AudioCameraOutputProcessor) handleAudio(frame *frames.AudioRawFrame) {
 			return
 		}
 
-		// Push bot speaking frame upstream
+		// Push bot speaking frame upstream if bot is speaking,
+		// quickly push, this can test upstream processor process frame speed :)
 		p.PushFrame(achatbot_frames.NewBotSpeakingFrame(), processors.FrameDirectionUpstream)
 	}
 }

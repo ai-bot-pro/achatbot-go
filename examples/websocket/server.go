@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -16,15 +17,19 @@ import (
 	"github.com/weedge/pipeline-go/pkg/logger"
 	"github.com/weedge/pipeline-go/pkg/pipeline"
 	"github.com/weedge/pipeline-go/pkg/processors"
+	"github.com/weedge/pipeline-go/pkg/processors/aggregators"
 	"github.com/weedge/pipeline-go/pkg/serializers"
 
+	"achatbot/pkg/common"
 	"achatbot/pkg/consts"
+	"achatbot/pkg/modules/llm"
 	"achatbot/pkg/modules/speech/asr"
 	"achatbot/pkg/modules/speech/tts"
 	"achatbot/pkg/modules/speech/vad_analyzer"
 	"achatbot/pkg/params"
 	achatbot_processors "achatbot/pkg/processors"
-	"achatbot/pkg/processors/aggregators"
+	achatbot_aggregators "achatbot/pkg/processors/aggregators"
+	"achatbot/pkg/processors/llm_processors"
 	"achatbot/pkg/transports"
 	achatbot_frames "achatbot/pkg/types/frames"
 )
@@ -47,17 +52,32 @@ var (
 // ExampleIWebSocketConn wraps *websocket.Conn to implement our IWebSocketConn interface
 type ExampleIWebSocketConn struct {
 	*websocket.Conn
+	mu sync.Mutex
 }
 
 // ReadMessage implements the IWebSocketConn interface
-func (wsc *ExampleIWebSocketConn) ReadMessage() (messageType int, p []byte, err error) {
-	return wsc.Conn.ReadMessage()
+func (wsc *ExampleIWebSocketConn) ReadMessage() (messageType consts.MessageType, p []byte, err error) {
+	var msType int
+	msType, p, err = wsc.Conn.ReadMessage()
+	return consts.MessageType(msType), p, err
 }
 
 // WriteMessage implements the IWebSocketConn interface
-func (wsc *ExampleIWebSocketConn) WriteMessage(messageType int, data []byte) error {
-	println("WriteMessage-->", messageType, len(data))
-	return wsc.Conn.WriteMessage(messageType, data)
+func (wsc *ExampleIWebSocketConn) WriteMessage(messageType consts.MessageType, data []byte) error {
+	if (len(data)) < 100 {
+		println("WriteMessage-->", messageType.String(), len(data), string(data))
+	} else {
+		println("WriteMessage-->", messageType.String(), len(data))
+	}
+	// NOTE: don't concurrent write to websocket connection
+	// issue: concurrent write TextFrame and AudioRawFrame
+
+	wsc.mu.Lock()
+	err := wsc.Conn.WriteMessage(int(messageType), data)
+	wsc.mu.Unlock()
+
+	return err
+
 }
 
 // Close implements the IWebSocketConn interface
@@ -75,6 +95,10 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer conn.Close()
+
+	// Set Session
+	clientId := fmt.Sprintf("%s_%s", conn.RemoteAddr().Network(), conn.RemoteAddr().String())
+	session := common.NewSession(clientId, nil)
 
 	// vad provider
 	sherpaOnnxProvider := vad_analyzer.NewSherpaOnnxProvider(
@@ -112,10 +136,17 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	asrProcessor := achatbot_processors.NewASRProcessor(asrProvider)
 
 	// Set TTS Processor
-	ttsProvider := tts.NewSherpaOnnxProvider(tts.NewDefaultSherpaOnnxOfflineTtsConfig(), 45, 1.0, "kokoroTTS")
+	ttsProvider := tts.NewSherpaOnnxProvider(tts.NewDefaultSherpaOnnxOfflineTtsConfig(), tts.KokoroTTS_Speaker_ZM_YunJian, 1.0, "kokoroTTS")
 	ttsProcessor := achatbot_processors.NewTTSProcessor(ttsProvider)
 	outRate, outChannels, outSampleWidth := ttsProvider.GetSampleInfo()
 	audioCameraParams.WithAudioOutSampleWidth(outSampleWidth).WithAudioOutSampleRate(outRate).WithAudioOutChannels(outChannels)
+
+	// Set LLM Processor
+	llmProvider := llm.NewOllamaAPIProviderWithoutTools(llm.OllamaAPIProviderName, llm.OllamaAPIProviderModel_QWEN3_0_6, true, nil, nil)
+	llm_processor := llm_processors.NewLLMOllamaApiProcessor(llmProvider, session, llm_processors.Mode_Chat)
+
+	// Set Sentence Processor
+	sentenceProcessor := aggregators.NewSentenceAggregatorWithEnd(reflect.TypeOf(&achatbot_frames.TurnEndFrame{}))
 
 	// 1. Create the WebSocket server input processor
 	ws_transport := transports.NewWebsocketTransport(
@@ -129,10 +160,10 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			processors.NewDefaultFrameLoggerProcessorWithIncludeFrame(
 				[]frames.Frame{&frames.StartFrame{}, &frames.EndFrame{}, &frames.CancelFrame{}},
 			),
-			//processors.NewDefaultFrameLoggerProcessorWithIncludeFrame([]frames.Frame{&achatbot_frames.BotSpeakingFrame{}}),
+			processors.NewDefaultFrameLoggerProcessorWithIncludeFrame([]frames.Frame{&achatbot_frames.BotSpeakingFrame{}}).WithMaxIdToLogs([]uint64{100}),
 
 			ws_transport.InputProcessor(),
-			aggregators.NewAudioResponseAggregatorWithAccumulate(
+			achatbot_aggregators.NewAudioResponseAggregatorWithAccumulate(
 				reflect.TypeOf(&achatbot_frames.UserStartedSpeakingFrame{}),
 				reflect.TypeOf(&achatbot_frames.UserStoppedSpeakingFrame{}),
 				reflect.TypeOf(&achatbot_frames.VADStateAudioRawFrame{}),
@@ -141,11 +172,16 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			achatbot_processors.NewAudioSaveProcessor("user_speak", consts.RECORDS_DIR, true),
 			asrProcessor.WithPassRawAudio(false),
 			processors.NewDefaultFrameLoggerProcessorWithIncludeFrame([]frames.Frame{&frames.TextFrame{}}),
+			llm_processor,
+			processors.NewDefaultFrameLoggerProcessorWithIncludeFrame([]frames.Frame{&achatbot_frames.ThinkTextFrame{}, &frames.TextFrame{}}),
+			sentenceProcessor,
+			processors.NewDefaultFrameLoggerProcessorWithIncludeFrame([]frames.Frame{&frames.TextFrame{}}),
 			ttsProcessor.WithPassText(true),
 			processors.NewDefaultFrameLoggerProcessorWithIncludeFrame([]frames.Frame{&frames.AudioRawFrame{}}),
 			//achatbot_processors.NewAudioResampleProcessor(audioCameraParams.AudioOutSampleRate),
 			//processors.NewDefaultFrameLoggerProcessorWithIncludeFrame([]frames.Frame{&frames.AudioRawFrame{}}),
 			achatbot_processors.NewAudioSaveProcessor("bot_speak", consts.RECORDS_DIR, true),
+			processors.NewDefaultFrameLoggerProcessorWithIncludeFrame([]frames.Frame{&frames.AudioRawFrame{}}),
 			ws_transport.OutputProcessor(),
 		},
 		nil, nil,

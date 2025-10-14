@@ -104,3 +104,98 @@ func TestAnimationAudioRawFrameWithDefaults(t *testing.T) {
 		t.Errorf("Expected empty avatar status, got %s", frame.AvatarStatus)
 	}
 }
+func TestFunctionCallFrame(t *testing.T) {
+	// 创建测试数据
+	toolCallID := "call_1234567890"
+	functionName := "get_current_weather"
+	arguments := `{"location": "San Francisco, CA", "format": "celsius"}`
+	index := 0
+
+	// 创建FunctionCallFrame实例
+	frame := NewFunctionCallFrame(toolCallID, functionName, arguments, index)
+
+	// 验证字段是否正确设置
+	if frame.ToolCallID != toolCallID {
+		t.Errorf("Expected toolCallID %s, got %s", toolCallID, frame.ToolCallID)
+	}
+
+	if frame.FunctionName != functionName {
+		t.Errorf("Expected functionName %s, got %s", functionName, frame.FunctionName)
+	}
+
+	if frame.Arguments != arguments {
+		t.Errorf("Expected arguments %s, got %s", arguments, frame.Arguments)
+	}
+
+	if frame.Index != index {
+		t.Errorf("Expected index %d, got %d", index, frame.Index)
+	}
+
+	if frame.Type != "function" {
+		t.Errorf("Expected type 'function', got %s", frame.Type)
+	}
+
+	// 验证String方法
+	str := frame.String()
+	if len(str) == 0 {
+		t.Error("String method should return a non-empty string")
+	}
+
+	// 检查字符串是否包含关键信息
+	expectedContains := []string{
+		"function_name: " + functionName,
+		"tool_call_id: " + toolCallID,
+		"arguments: " + arguments,
+		"index: 0",
+		"type: function",
+	}
+
+	for _, expected := range expectedContains {
+		if !contains(str, expected) {
+			t.Errorf("String method output should contain '%s', got: %s", expected, str)
+		}
+	}
+}
+
+func TestFunctionCallFrameArgumentsDict(t *testing.T) {
+	// 创建测试数据
+	toolCallID := "call_1234567890"
+	functionName := "get_current_weather"
+	arguments := `{"location": "San Francisco, CA", "format": "celsius"}`
+	index := 0
+
+	// 创建FunctionCallFrame实例
+	frame := NewFunctionCallFrame(toolCallID, functionName, arguments, index)
+
+	// 测试ArgumentsDict方法
+	args, err := frame.ArgumentsDict()
+	if err != nil {
+		t.Errorf("ArgumentsDict should not return an error, got: %v", err)
+	}
+
+	// 验证解析结果
+	if location, ok := args["location"]; !ok || location != "San Francisco, CA" {
+		t.Errorf("Expected location 'San Francisco, CA', got %v", location)
+	}
+
+	if format, ok := args["format"]; !ok || format != "celsius" {
+		t.Errorf("Expected format 'celsius', got %v", format)
+	}
+}
+
+func TestFunctionCallFrameArgumentsDictInvalidJSON(t *testing.T) {
+	// 创建测试数据，带有无效的JSON
+	toolCallID := "call_1234567890"
+	functionName := "get_current_weather"
+	arguments := `{"location": "San Francisco, CA", "format":}` // 无效的JSON
+	index := 0
+
+	// 创建FunctionCallFrame实例
+	frame := NewFunctionCallFrame(toolCallID, functionName, arguments, index)
+
+	// 测试ArgumentsDict方法应该返回错误
+	_, err := frame.ArgumentsDict()
+	if err == nil {
+		t.Error("ArgumentsDict should return an error for invalid JSON")
+	}
+}

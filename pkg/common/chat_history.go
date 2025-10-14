@@ -1,6 +1,7 @@
 package common
 
 import (
+	"maps"
 	"encoding/json"
 )
 
@@ -164,4 +165,41 @@ func (ch *ChatHistory) UnmarshalJSON(data []byte) error {
 	}
 
 	return nil
+}
+
+func (ch *ChatHistory) Copy() *ChatHistory {
+	// Copy size
+	var sizeCopy *int
+	if ch.size != nil {
+		sizeCopy = new(int)
+		*sizeCopy = *ch.size
+	}
+
+	// Copy initChatMessage
+	var initChatMessageCopy map[string]any
+	if ch.initChatMessage != nil {
+		initChatMessageCopy = make(map[string]any)
+		maps.Copy(initChatMessageCopy, ch.initChatMessage)
+	}
+
+	// Copy initChatTools
+	var initChatToolsCopy map[string]any
+	if ch.initChatTools != nil {
+		initChatToolsCopy = make(map[string]any)
+		maps.Copy(initChatToolsCopy, ch.initChatTools)
+	}
+
+	// Copy buffer
+	bufferCopy := make([]map[string]any, len(ch.buffer))
+	for i, item := range ch.buffer {
+		bufferCopy[i] = make(map[string]any)
+		maps.Copy(bufferCopy[i], item)
+	}
+
+	return &ChatHistory{
+		size:            sizeCopy,
+		initChatMessage: initChatMessageCopy,
+		initChatTools:   initChatToolsCopy,
+		buffer:          bufferCopy,
+	}
 }

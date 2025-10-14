@@ -215,3 +215,66 @@ func TestChatHistoryJSONMarshalUnmarshal(t *testing.T) {
 		t.Error("Init message was not unmarshaled correctly")
 	}
 }
+
+func TestChatHistoryCopy(t *testing.T) {
+	// Create original ChatHistory
+	initMsg := map[string]any{"role": "system", "content": "You are a helpful assistant"}
+	initTools := map[string]any{
+		"type": "function",
+		"function": map[string]any{
+			"name":        "get_weather",
+			"description": "Get weather information",
+		},
+	}
+	size := 3
+	ch := NewChatHistory(&size, initMsg, initTools)
+
+	// Add some conversation
+	ch.Append(map[string]any{"role": "user", "content": "Hello"})
+	ch.Append(map[string]any{"role": "assistant", "content": "Hi there!"})
+
+	// Create copy
+	copy := ch.Copy()
+
+	// Check that copy is not nil
+	if copy == nil {
+		t.Error("Expected copy to be not nil")
+	}
+
+	// Check that fields are copied correctly
+	if copy != nil && (copy.size == nil || *copy.size != *ch.size) {
+		t.Errorf("Expected size %d, got %v", *ch.size, copy.size)
+	}
+
+	if copy.initChatMessage == nil || copy.initChatMessage["content"] != ch.initChatMessage["content"] {
+		t.Error("Init message was not copied correctly")
+	}
+
+	if copy.initChatTools == nil || copy.initChatTools["type"] != ch.initChatTools["type"] {
+		t.Error("Init tools were not copied correctly")
+	}
+
+	if len(copy.buffer) != len(ch.buffer) {
+		t.Errorf("Expected buffer length %d, got %d", len(ch.buffer), len(copy.buffer))
+	}
+
+	// Check that copy is deep (modifying copy should not affect original)
+	// Modify size
+	newSize := 5
+	copy.SetSize(&newSize)
+	if *ch.size == newSize {
+		t.Error("Original size was affected by copy modification")
+	}
+
+	// Modify initChatMessage
+	copy.initChatMessage["content"] = "Modified content"
+	if ch.initChatMessage["content"] == "Modified content" {
+		t.Error("Original initChatMessage was affected by copy modification")
+	}
+
+	// Modify buffer
+	copy.buffer[0]["content"] = "Modified buffer content"
+	if ch.buffer[0]["content"] == "Modified buffer content" {
+		t.Error("Original buffer was affected by copy modification")
+	}
+}

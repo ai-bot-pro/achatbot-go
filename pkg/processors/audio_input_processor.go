@@ -118,8 +118,7 @@ func (p *AudioVADInputProcessor) PushAudioFrame(frame *frames.AudioRawFrame) err
 		case <-p.ctx.Done():
 			return p.ctx.Err()
 		default:
-			// Channel may be closed, return error instead of panicking
-			return fmt.Errorf("audioInQueue is closed, cannot push audio frame")
+			logger.Warnf("%s audioInQueue is full, cannot push frame %s", p.Name(), frame.String())
 		}
 	}
 	return nil

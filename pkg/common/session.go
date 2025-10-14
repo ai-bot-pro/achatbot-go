@@ -61,3 +61,12 @@ func (s *Session) GetSessionID() string {
 func (s *Session) GetChatHistory() *ChatHistory {
 	return s.chatHistory
 }
+
+func (s *Session) Copy() *Session {
+	cpSsession := NewSession(s.sessionID, nil)
+	cpSsession.chatRound = s.chatRound
+	cpSsession.sessionID = s.sessionID
+	cpSsession.chatHistory = s.chatHistory.Copy()
+
+	return cpSsession
+}
