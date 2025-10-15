@@ -30,3 +30,20 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# link
+models
+# dir
+log/
+config/
+models/
+demo/
+records/
+videos/
+resources/
+
+# image
+.jpg
+
+# audio
+.wav
