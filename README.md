@@ -28,6 +28,12 @@ go run examples/websocket/server.go
 cd examples/websocket/ui/ && python -m http.server
 # - access http://localhost:8000 to Start Audio
 ```
+## TODO
+- [ ] local VAD + ASR+LLM+TTS remote api Pipeline
+- [ ] local VAD + E2E/autonomous llm-audio/omni realtime api Pipeline
+- [ ] local Speech-to-Text with Speaker Identification
+
+
 
 
 # Acknowledgement
