@@ -64,14 +64,13 @@ func (wsc *ExampleIWebSocketConn) ReadMessage() (messageType consts.MessageType,
 
 // WriteMessage implements the IWebSocketConn interface
 func (wsc *ExampleIWebSocketConn) WriteMessage(messageType consts.MessageType, data []byte) error {
-	if (len(data)) < 100 {
+	if (len(data)) < 200 { //for text frame
 		println("WriteMessage-->", messageType.String(), len(data), string(data))
 	} else {
 		println("WriteMessage-->", messageType.String(), len(data))
 	}
-	// NOTE: don't concurrent write to websocket connection
+	// NOTE: don't concurrent write to websocket connection, need lock
 	// issue: concurrent write TextFrame and AudioRawFrame
-
 	wsc.mu.Lock()
 	err := wsc.Conn.WriteMessage(int(messageType), data)
 	wsc.mu.Unlock()
@@ -173,7 +172,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			asrProcessor.WithPassRawAudio(false),
 			processors.NewDefaultFrameLoggerProcessorWithIncludeFrame([]frames.Frame{&frames.TextFrame{}}),
 			llm_processor,
-			processors.NewDefaultFrameLoggerProcessorWithIncludeFrame([]frames.Frame{&achatbot_frames.ThinkTextFrame{}, &frames.TextFrame{}}),
+			//processors.NewDefaultFrameLoggerProcessorWithIncludeFrame([]frames.Frame{&achatbot_frames.ThinkTextFrame{}, &frames.TextFrame{}}),
 			sentenceProcessor,
 			processors.NewDefaultFrameLoggerProcessorWithIncludeFrame([]frames.Frame{&frames.TextFrame{}}),
 			ttsProcessor.WithPassText(true),

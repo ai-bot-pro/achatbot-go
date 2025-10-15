@@ -96,6 +96,7 @@ func (p *LLMOllamaApiProcessor) chat(frame *frames.TextFrame, direction processo
 		chatHistory.Append(map[string]any{"role": "assistant", "thinking": genThinking})
 	}
 	p.QueueFrame(achatbot_frames.NewTurnEndFrame(), direction)
+	logger.Debugf("ChatHistory: %+v", chatHistory.ToList())
 }
 
 func (p *LLMOllamaApiProcessor) generate(frame *frames.TextFrame, direction processors.FrameDirection) {
