@@ -38,7 +38,7 @@ cd examples/websocket/ui/ && python -m http.server
 - [ ] 6. webrtc or websocket+webrtc bridge transports
 - [ ] 7. local voice agent with micphone
 - [ ] 8. 3/4 + streaming avatar api pipeline
-- [ ] 9. AIGC: gen Image/Vedio remote api
+- [ ] 9. AIGC: gen Image/Video remote api
 
 
 
