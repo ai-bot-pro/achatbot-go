@@ -35,12 +35,11 @@ func NewVADStateAudioRawFrame() *VADStateAudioRawFrame {
 
 // String implements string representation of VADStateAudioRawFrame
 func (f *VADStateAudioRawFrame) String() string {
-	return fmt.Sprintf("%s (state: %v speech_id: %d is_final: %t speech_id: %d start_at_s: %.2f cur_at_s: %.2f end_at_s: %.2f)",
+	return fmt.Sprintf("%s (state: %v speech_id: %d is_final: %t start_at_s: %.2f cur_at_s: %.2f end_at_s: %.2f)",
 		f.AudioRawFrame.String(),
 		f.State,
 		f.SpeechID,
 		f.IsFinal,
-		f.SpeechID,
 		f.StartAtS,
 		f.CurAtS,
 		f.EndAtS,

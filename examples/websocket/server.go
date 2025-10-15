@@ -142,7 +142,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	// Set LLM Processor
 	llmProvider := llm.NewOllamaAPIProviderWithoutTools(llm.OllamaAPIProviderName, llm.OllamaAPIProviderModel_QWEN3_0_6, true, nil, nil)
-	llm_processor := llm_processors.NewLLMOllamaApiProcessor(llmProvider, session, llm_processors.Mode_Chat)
+	llmProcessor := llm_processors.NewLLMOllamaApiProcessor(llmProvider, session, llm_processors.Mode_Chat)
 
 	// Set Sentence Processor
 	sentenceProcessor := aggregators.NewSentenceAggregatorWithEnd(reflect.TypeOf(&achatbot_frames.TurnEndFrame{}))
@@ -171,7 +171,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			achatbot_processors.NewAudioSaveProcessor("user_speak", consts.RECORDS_DIR, true),
 			asrProcessor.WithPassRawAudio(false),
 			processors.NewDefaultFrameLoggerProcessorWithIncludeFrame([]frames.Frame{&frames.TextFrame{}}),
-			llm_processor,
+			llmProcessor,
 			//processors.NewDefaultFrameLoggerProcessorWithIncludeFrame([]frames.Frame{&achatbot_frames.ThinkTextFrame{}, &frames.TextFrame{}}),
 			sentenceProcessor,
 			processors.NewDefaultFrameLoggerProcessorWithIncludeFrame([]frames.Frame{&frames.TextFrame{}}),

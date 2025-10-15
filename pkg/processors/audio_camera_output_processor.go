@@ -233,6 +233,9 @@ func (p *AudioCameraOutputProcessor) audioOutTaskHandler() {
 	for {
 		select {
 		case chunk := <-p.audioOutQueue:
+			if chunk == nil {
+				return
+			}
 			err := p.transportWriter.WriteRawAudio(chunk)
 			if err != nil {
 				logger.Error(fmt.Sprintf("%s audio_out_task_handler error", p.Name()), "error", err)
@@ -240,9 +243,6 @@ func (p *AudioCameraOutputProcessor) audioOutTaskHandler() {
 		case <-p.ctx.Done():
 			logger.Info(fmt.Sprintf("%s audio_out_task_handler cancelled", p.Name()))
 			return
-		case <-time.After(1 * time.Second):
-			// Timeout, continue the loop
-			continue
 		}
 	}
 }
