@@ -62,6 +62,10 @@
       // Whether we should be playing audio.
       let isPlaying = false;
 
+      // 音频队列，用于确保音频按顺序播放
+      let audioQueue = [];
+      let isAudioProcessing = false;
+
       let startBtn = document.getElementById('startAudioBtn');
       let stopBtn = document.getElementById('stopAudioBtn');
       
@@ -141,17 +145,47 @@
           }
           lastMessageTime = audioContext.currentTime;
 
-          // We should be able to use parsedFrame.audio.audio.buffer but for
+          // 将音频数据添加到队列中
+          audioQueue.push(parsedFrame.audio);
+          
+          // 如果没有正在处理音频，则开始处理
+          if (!isAudioProcessing) {
+              processAudioQueue();
+          }
+      }
+
+      // 处理音频队列，确保音频按顺序播放
+      function processAudioQueue() {
+          if (audioQueue.length === 0) {
+              isAudioProcessing = false;
+              return;
+          }
+
+          isAudioProcessing = true;
+          const audioData = audioQueue.shift();
+
+          // We should be able to use audioData.audio.buffer but for
           // some reason that contains all the bytes from the protobuf message.
-          const audioVector = Array.from(parsedFrame.audio.audio);
+          const audioVector = Array.from(audioData.audio);
           const audioArray = new Uint8Array(audioVector);
 
+          console.log("audioArray-->",audioArray.byteLength)
           audioContext.decodeAudioData(audioArray.buffer, function(buffer) {
+              console.log("playAudio-->",audioArray.byteLength,buffer.duration,playTime)
               const source = new AudioBufferSourceNode(audioContext);
               source.buffer = buffer;
               source.start(playTime);
               source.connect(audioContext.destination);
               playTime = playTime + buffer.duration;
+              
+              // 当前音频播放完毕后继续处理队列中的下一个音频
+              source.onended = function() {
+                  processAudioQueue();
+              };
+          }).catch(function(error) {
+              console.error('解码音频数据失败:', error);
+              // 即使解码失败也要继续处理队列中的下一个音频
+              processAudioQueue();
           });
       }
 
@@ -228,6 +262,10 @@
           isPlaying = false;
           startBtn.disabled = false;
           stopBtn.disabled = true;
+
+          // 清空音频队列
+          audioQueue = [];
+          isAudioProcessing = false;
 
           if (ws && closeWebsocket) {
               ws.close();

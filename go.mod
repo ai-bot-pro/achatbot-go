@@ -11,7 +11,7 @@ require (
 	github.com/openai/openai-go/v3 v3.3.0
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
-	github.com/weedge/pipeline-go v0.0.0-20251014114508-3bc4bb675730
+	github.com/weedge/pipeline-go v0.0.0-20251015053040-c895d229b03a
 	golang.org/x/image v0.32.0
 )
 
@@ -42,4 +42,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-//replace github.com/weedge/pipeline-go v0.0.0-20251014114508-3bc4bb675730 => ../pipeline-go
+//replace github.com/weedge/pipeline-go v0.0.0-20251015053040-c895d229b03a => ../pipeline-go

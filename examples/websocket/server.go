@@ -123,7 +123,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		AudioCameraParams: audioCameraParams,
 		Serializer:        serializers.NewProtobufSerializer(),
 	}
-	wsParams.WithAudioOutFrameSize(6400).WithAudioOutAddWavHeader(true)
+	wsParams.WithAudioOutFrameMS(200).WithAudioOutAddWavHeader(true) //200ms + wav head
 
 	// Set Websocket Transport Writer
 	transportWriter := achatbot_processors.NewWebsocketTransportWriter(wsConn, wsParams)

@@ -35,11 +35,13 @@ func NewWebsocketTransportWriter(
 }
 
 func (p *WebsocketTransportWriter) WriteRawAudio(data []byte) error {
+	audioOutBytesSize := p.params.AudioOutChannels * p.params.AudioOutSampleWidth * p.params.AudioOutSampleRate * p.params.AudioOutFrameMS / 1000
+
 	p.websocketAudioBuffer = append(p.websocketAudioBuffer, data...)
 
-	for len(p.websocketAudioBuffer) >= p.params.AudioOutFrameSize {
+	for len(p.websocketAudioBuffer) >= audioOutBytesSize {
 		frame := frames.NewAudioRawFrame(
-			p.websocketAudioBuffer[:p.params.AudioOutFrameSize],
+			p.websocketAudioBuffer[:audioOutBytesSize],
 			p.params.AudioOutSampleRate,
 			p.params.AudioOutChannels,
 			p.params.AudioOutSampleWidth,
@@ -57,7 +59,7 @@ func (p *WebsocketTransportWriter) WriteRawAudio(data []byte) error {
 		}
 
 		// 安全地更新缓冲区
-		p.websocketAudioBuffer = p.websocketAudioBuffer[p.params.AudioOutFrameSize:]
+		p.websocketAudioBuffer = p.websocketAudioBuffer[audioOutBytesSize:]
 
 		err := p.SendPayload(frame)
 		if err != nil {

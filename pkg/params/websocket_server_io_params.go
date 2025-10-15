@@ -11,7 +11,7 @@ type WebsocketServerParams struct {
 	*AudioCameraParams
 	Serializer           serializers.Serializer
 	AudioOutAddWavHeader bool `json:"audio_out_add_wav_header"`
-	AudioOutFrameSize    int  `json:"audio_frame_size"`
+	AudioOutFrameMS      int  `json:"audio_out_frame_ms"`
 }
 
 // NewWebsocketServerParams creates a new WebsocketServerParams with default values
@@ -20,7 +20,7 @@ func NewWebsocketServerParams() *WebsocketServerParams {
 		AudioCameraParams:    NewAudioCameraParams(),
 		Serializer:           serializers.NewProtobufSerializer(),
 		AudioOutAddWavHeader: false,
-		AudioOutFrameSize:    6400, // 200ms with 16K hz 1 channel 2 sample_width
+		AudioOutFrameMS:      200, // 200ms
 	}
 }
 
@@ -36,12 +36,12 @@ func (p *WebsocketServerParams) WithAudioOutAddWavHeader(AudioOutAddWavHeader bo
 	return p
 }
 
-// WithAudioOutFrameSize sets the audio frame size
-func (p *WebsocketServerParams) WithAudioOutFrameSize(size int) *WebsocketServerParams {
-	p.AudioOutFrameSize = size
+// WithAudioOutFrameMS sets the audio frame size
+func (p *WebsocketServerParams) WithAudioOutFrameMS(audioOutFrameMS int) *WebsocketServerParams {
+	p.AudioOutFrameMS = audioOutFrameMS
 	return p
 }
 
 func (p *WebsocketServerParams) String() string {
-	return fmt.Sprintf("WebsocketServerParams{AudioCameraParams: %s, AudioOutAddWavHeader: %t, AudioOutFrameSize: %d, Serializer: %s}", p.AudioCameraParams, p.AudioOutAddWavHeader, p.AudioOutFrameSize, p.Serializer)
+	return fmt.Sprintf("WebsocketServerParams{AudioCameraParams: %s, AudioOutAddWavHeader: %t, AudioOutFrameMS: %d, Serializer: %s}", p.AudioCameraParams, p.AudioOutAddWavHeader, p.AudioOutFrameMS, p.Serializer)
 }
