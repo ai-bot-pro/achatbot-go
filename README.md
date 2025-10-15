@@ -33,6 +33,8 @@ cd examples/websocket/ui/ && python -m http.server
 # Acknowledgement
 - [ollama](https://github.com/ollama/ollama)
 - [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx)
+- [pipeline-py](https://github.com/ai-bot-pro/pipeline-py)
+
 
 
 # License
