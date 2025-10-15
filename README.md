@@ -34,11 +34,11 @@ cd examples/websocket/ui/ && python -m http.server
 - [ ] 2. support MCP
 - [ ] 3. local VAD + ASR+LLM+TTS remote api Pipeline
 - [ ] 4. local VAD + E2E/autonomous llm-audio/omni realtime api Pipeline
-- [ ] 5. local Speech-to-Text with Speaker Identification
+- [ ] 5. local Speech-to-Text with Speaker Identification Pipeline
 - [ ] 6. webrtc or websocket+webrtc bridge transports
 - [ ] 7. local voice agent with micphone
-- [ ] 8. 3/4 + streaming avatar api pipeline
-- [ ] 9. AIGC: gen Image/Video remote api
+- [ ] 8. 3/4 + streaming avatar api Pipeline
+- [ ] 9. AIGC: gen Image/Video remote api Pipeline
 
 
 
