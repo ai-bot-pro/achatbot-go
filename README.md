@@ -32,8 +32,8 @@ cd examples/websocket/ui/ && python -m http.server
 ## TODO
 - [ ] 1. support tool-calls
 - [ ] 2. support MCP
-- [ ] 3. local VAD + ASR+LLM+TTS remote api Pipeline
-- [ ] 4. local VAD + E2E/autonomous llm-audio/omni realtime api Pipeline
+- [ ] 3. local VAD/turn + ASR+LLM+TTS remote api Pipeline
+- [ ] 4. local VAD/turn + E2E/autonomous llm-audio/omni realtime api Pipeline
 - [ ] 5. local Speech-to-Text with Speaker Identification Pipeline
 - [ ] 6. webrtc or websocket+webrtc bridge transports
 - [ ] 7. local voice agent with micphone
