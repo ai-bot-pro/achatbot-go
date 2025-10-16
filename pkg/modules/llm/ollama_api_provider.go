@@ -100,12 +100,6 @@ func (p *OllamaAPIProvider) Name() string {
 	return p.name
 }
 
-func (p *OllamaAPIProvider) Release() {
-}
-
-func (p *OllamaAPIProvider) Warmup() {
-}
-
 // UpdateGenArgs updates the GenerateArgs with the provided values
 func (p *OllamaAPIProvider) UpdateGenArgs(values map[string]any) {
 	maps.Copy(p.genArgs, values)
