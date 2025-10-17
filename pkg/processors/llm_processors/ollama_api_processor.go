@@ -92,7 +92,12 @@ func (p *LLMOllamaApiProcessor) chat(frame *frames.TextFrame, direction processo
 	}
 
 	isToolCalls := true
+	cnToolCalls := 0
 	for isToolCalls {
+		if cnToolCalls > 3 {
+			logger.Error("chat", "err", "too many tool calls")
+			break
+		}
 		genThinking, genContent := "", ""
 		p.provider.Chat(context.Background(), messages, func(resp api.ChatResponse) error {
 			if resp.Done {
@@ -120,6 +125,7 @@ func (p *LLMOllamaApiProcessor) chat(frame *frames.TextFrame, direction processo
 					messages = append(messages, toolMsgs...)
 					p.appendHistoryChatMessages(toolMsgs)
 					isToolCalls = true
+					cnToolCalls++
 				}
 			}
 			if resp.Message.Thinking != "" {

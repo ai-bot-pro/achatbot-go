@@ -12,6 +12,7 @@ import (
 	"github.com/openai/openai-go/v3/option"
 	"github.com/openai/openai-go/v3/packages/param"
 	"github.com/openai/openai-go/v3/shared"
+	"github.com/openai/openai-go/v3/shared/constant"
 	"github.com/weedge/pipeline-go/pkg/logger"
 )
 
@@ -90,8 +91,28 @@ func (p *OpenAIAPIProvider) convertMessages(messages []types.Message) []openai.C
 			msgUnion = append(msgUnion, openai.SystemMessage(msg.Content))
 		case "user":
 			msgUnion = append(msgUnion, openai.UserMessage(msg.Content))
-		case "assistant": // TODO: tool_calls
-			msgUnion = append(msgUnion, openai.AssistantMessage(msg.Content))
+		case "assistant":
+			if msg.Content != "" {
+				msgUnion = append(msgUnion, openai.AssistantMessage(msg.Content))
+			}
+			if msg.ToolCalls != nil { // tool_calls
+				toolCalls := []openai.ChatCompletionMessageToolCallUnionParam{}
+				for _, toolCall := range msg.ToolCalls {
+					toolCalls = append(toolCalls, toolCall.ToParam())
+				}
+				msgUnion = append(msgUnion, openai.ChatCompletionMessageParamUnion{OfAssistant: &openai.ChatCompletionAssistantMessageParam{
+					Role:      msg.Role,
+					ToolCalls: toolCalls,
+				}})
+			}
+		case "tool":
+			msgUnion = append(msgUnion, openai.ChatCompletionMessageParamUnion{
+				OfTool: &openai.ChatCompletionToolMessageParam{
+					Role:       constant.Tool(msg.Role),
+					ToolCallID: msg.ToolCallID,
+					Content:    openai.ChatCompletionToolMessageParamContentUnion{OfString: param.Opt[string]{Value: msg.Content}},
+				},
+			})
 		}
 	}
 

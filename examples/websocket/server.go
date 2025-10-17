@@ -31,6 +31,7 @@ import (
 	achatbot_aggregators "achatbot/pkg/processors/aggregators"
 	"achatbot/pkg/processors/llm_processors"
 	"achatbot/pkg/transports"
+	"achatbot/pkg/types"
 	achatbot_frames "achatbot/pkg/types/frames"
 )
 
@@ -142,12 +143,12 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	// Set LLM Processor
 	//llmProvider := llm.NewOllamaAPIProviderWithoutTools(llm.OllamaAPIProviderName, llm.OllamaAPIProviderModel_QWEN3_0_6, true, nil, nil)
-	llmProvider := llm.NewOllamaAPIProvider(llm.OllamaAPIProviderName, llm.OllamaAPIProviderModel_QWEN3_0_6, true, nil, nil, []string{"web_search"})
-	llmProcessor := llm_processors.NewLLMOllamaApiProcessor(llmProvider, session, llm_processors.Mode_Chat)
-	//llmProvider := llm.NewOpenAIAPIProvider(llm.OllamaAPIProviderName, llm.OllamaAPIProviderBaseUrl, llm.OllamaAPIProviderModel_QWEN3_0_6)
+	//llmProvider := llm.NewOllamaAPIProvider(llm.OllamaAPIProviderName, llm.OllamaAPIProviderModel_QWEN3_0_6, true, nil, nil, []string{"web_search"})
+	//llmProcessor := llm_processors.NewLLMOllamaApiProcessor(llmProvider, session, llm_processors.Mode_Chat)
+	llmProvider := llm.NewOpenAIAPIProvider(llm.OllamaAPIProviderName, llm.OllamaAPIProviderBaseUrl, llm.OllamaAPIProviderModel_QWEN3_0_6)
 	//llmProvider := llm.NewOpenAIAPIProvider(llm.OpenAIAPIProviderName, llm.OpenRouterAIAPIProviderBaseUrl, llm.OpenRouterAIAPIProviderModelQwen2_5_72b_free)
 	//llmProvider := llm.NewOpenAIAPIProvider(llm.OpenAIAPIProviderName, llm.OpenRouterAIAPIProviderBaseUrl, llm.OpenRouterAIAPIProviderModelQwen3_235b_free)
-	//llmProcessor := llm_processors.NewLLMOpenAIApiProcessor(llmProvider, session, llm_processors.Mode_Chat, true, *types.NewLMGenerateArgs())
+	llmProcessor := llm_processors.NewLLMOpenAIApiProcessor(llmProvider, session, llm_processors.Mode_Chat, true, *types.NewLMGenerateArgs())
 
 	// Set Sentence Processor
 	sentenceProcessor := aggregators.NewSentenceAggregatorWithEnd(reflect.TypeOf(&achatbot_frames.TurnEndFrame{}))

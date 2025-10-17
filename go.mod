@@ -8,7 +8,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/k2-fsa/sherpa-onnx-go v1.12.12
 	github.com/ollama/ollama v0.12.5
-	github.com/openai/openai-go/v3 v3.3.0
+	github.com/openai/openai-go/v3 v3.4.0
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
 	github.com/weedge/pipeline-go v0.0.0-20251015053040-c895d229b03a
@@ -43,3 +43,5 @@ require (
 )
 
 //replace github.com/weedge/pipeline-go v0.0.0-20251015053040-c895d229b03a => ../pipeline-go
+
+replace github.com/openai/openai-go/v3 => github.com/weedge/openai-go/v3 v3.0.0-20251017144926-bc848e556df2

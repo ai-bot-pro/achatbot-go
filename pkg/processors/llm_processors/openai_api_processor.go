@@ -2,6 +2,8 @@ package llm_processors
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/google/uuid"
@@ -11,6 +13,7 @@ import (
 	"github.com/weedge/pipeline-go/pkg/processors"
 
 	"achatbot/pkg/common"
+	"achatbot/pkg/modules/functions"
 	"achatbot/pkg/types"
 	achatbot_frames "achatbot/pkg/types/frames"
 )
@@ -69,6 +72,19 @@ func (p *LLMOpenAIApiProcessor) ProcessFrame(frame frames.Frame, direction proce
 	}
 }
 
+// appendHistoryChatMessages message(api.Message) append to history list([]map[string]any)
+func (p *LLMOpenAIApiProcessor) appendHistoryChatMessages(msgs []types.Message) {
+	for _, msg := range msgs {
+		mapMsg := map[string]any{}
+		err := mapstructure.Decode(msg, &mapMsg)
+		if err != nil {
+			logger.Errorf("mapstructure.Decode error: %v", err)
+			continue
+		}
+		p.session.GetChatHistory().Append(mapMsg)
+	}
+}
+
 func (p *LLMOpenAIApiProcessor) chat(frame *frames.TextFrame, direction processors.FrameDirection) {
 	chatHistory := p.session.GetChatHistory()
 	chatHistory.Append(map[string]any{"role": "user", "content": frame.Text})
@@ -79,34 +95,121 @@ func (p *LLMOpenAIApiProcessor) chat(frame *frames.TextFrame, direction processo
 		logger.Error("chat", "err", err)
 	}
 
-	genContent := ""
-	if !p.stream {
-		p.provider.Chat(context.Background(), p.args, messages, func(resp *openai.ChatCompletion) error {
-			if resp.Choices[0].Message.Content != "" {
-				p.QueueFrame(frames.NewTextFrame(resp.Choices[0].Message.Content), direction)
-				genContent += resp.Choices[0].Message.Content
-			}
-			return nil
-		})
-		if genContent != "" {
-			chatHistory.Append(map[string]any{"role": "assistant", "content": genContent})
+	isToolCalls := true
+	cnToolCalls := 0
+	for isToolCalls {
+		if cnToolCalls > 3 {
+			logger.Error("chat", "err", "too many tool calls")
+			break
 		}
-	} else {
-		p.provider.ChatStream(context.Background(), p.args, messages, func(resp *openai.ChatCompletionChunk) error {
-			// NOTE: now delta not return thinking, but in raw json, if u want use thinking content
-			if resp.Choices[0].Delta.Content != "" {
-				p.QueueFrame(frames.NewTextFrame(resp.Choices[0].Delta.Content), direction)
-				genContent += resp.Choices[0].Delta.Content
+		if !p.stream {
+			p.provider.Chat(context.Background(), p.args, messages, func(resp *openai.ChatCompletion) error {
+				toolMsgs := []types.Message{}
+				for i, toolCall := range resp.Choices[0].Message.ToolCalls {
+					// Extract the location from the function call arguments
+					funcArgs := strings.ReplaceAll(toolCall.Function.Arguments, "{}", "")
+					resp.Choices[0].Message.ToolCalls[i].Function.Arguments = funcArgs
+
+					var args map[string]any
+					err := json.Unmarshal([]byte(funcArgs), &args)
+					if err != nil {
+						logger.Errorf("Failed to unmarshal function arguments: %v err: %v", funcArgs, err)
+						continue
+					}
+					result, err := functions.RegisterFuncs.Execute(toolCall.Function.Name, args)
+					if err != nil {
+						logger.Errorf("Failed to execute function: %v err: %v", toolCall.Function.Name, err)
+						continue
+					}
+					toolMsgs = append(toolMsgs, types.Message{
+						ChatCompletionMessage: openai.ChatCompletionMessage{Role: "tool", Content: result},
+						ToolCallID:            toolCall.ID,
+					})
+					p.QueueFrame(achatbot_frames.NewFunctionCallFrame(toolCall.ID, toolCall.Function.Name, args, i), direction)
+				}
+				// If there is a was a function call, continue the conversation
+				if len(toolMsgs) > 0 { //call_tools
+					msg := types.Message{ChatCompletionMessage: resp.Choices[0].Message}
+					messages = append(messages, msg)
+					p.appendHistoryChatMessages([]types.Message{msg})
+					messages = append(messages, toolMsgs...)
+					p.appendHistoryChatMessages(toolMsgs)
+					isToolCalls = true
+					cnToolCalls++
+				}
+				if resp.Choices[0].Message.Reasoning != "" {
+					p.QueueFrame(achatbot_frames.NewThinkTextFrame(resp.Choices[0].Message.Reasoning), direction)
+				}
+				if resp.Choices[0].Message.Content != "" {
+					isToolCalls = false
+					msg := types.Message{ChatCompletionMessage: resp.Choices[0].Message}
+					messages = append(messages, msg)
+					p.appendHistoryChatMessages([]types.Message{msg})
+					p.QueueFrame(frames.NewTextFrame(resp.Choices[0].Message.Content), direction)
+				}
+				return nil
+			})
+		} else { //stream
+			acc := openai.ChatCompletionAccumulator{}
+			toolMsgs := []types.Message{}
+			p.provider.ChatStream(context.Background(), p.args, messages, func(chunk *openai.ChatCompletionChunk) error {
+				acc.AddChunk(*chunk)
+				if len(chunk.Choices) == 0 {
+					return nil
+				}
+
+				if chunk.Choices[0].Delta.Reasoning != "" {
+					p.QueueFrame(achatbot_frames.NewThinkTextFrame(chunk.Choices[0].Delta.Reasoning), direction)
+				}
+				if chunk.Choices[0].Delta.Content != "" {
+					p.QueueFrame(frames.NewTextFrame(chunk.Choices[0].Delta.Content), direction)
+				}
+
+				if chunk.Choices[0].Delta.ToolCalls != nil {
+					for _, tool := range chunk.Choices[0].Delta.ToolCalls {
+						tool.Function.Arguments = strings.ReplaceAll(tool.Function.Arguments, "{}", "")
+						var args map[string]any
+						err := json.Unmarshal([]byte(tool.Function.Arguments), &args)
+						if err != nil {
+							logger.Errorf("Failed to Unmarshal err: %v", err)
+							continue
+						}
+						result, err := functions.RegisterFuncs.Execute(tool.Function.Name, args)
+						if err != nil {
+							logger.Error("Execute", "err", err, "funcName", tool.Function.Name, "funcArgs", tool.Function.Arguments)
+							continue
+						}
+						toolMsgs = append(toolMsgs, types.Message{
+							ChatCompletionMessage: openai.ChatCompletionMessage{Role: "tool", Content: result},
+							ToolCallID:            tool.ID,
+						})
+						p.QueueFrame(achatbot_frames.NewFunctionCallFrame(tool.ID, tool.Function.Name, args, int(tool.Index)), direction)
+					}
+				}
+				return nil
+			})
+			// If there is a was a function call, continue the conversation
+			if len(toolMsgs) > 0 { //call_tools
+				msg := types.Message{ChatCompletionMessage: acc.Choices[0].Message}
+				messages = append(messages, msg)
+				p.appendHistoryChatMessages([]types.Message{msg})
+				messages = append(messages, toolMsgs...)
+				p.appendHistoryChatMessages(toolMsgs)
+				isToolCalls = true
+				cnToolCalls++
 			}
-			return nil
-		})
-		if genContent != "" {
-			chatHistory.Append(map[string]any{"role": "assistant", "content": genContent})
-		}
-	}
+
+			if acc.Choices[0].Message.Content != "" {
+				isToolCalls = false
+				msg := types.Message{ChatCompletionMessage: acc.Choices[0].Message}
+				messages = append(messages, msg)
+				p.appendHistoryChatMessages([]types.Message{msg})
+			}
+		} //end stream
+	} //end call
 
 	p.QueueFrame(achatbot_frames.NewTurnEndFrame(), direction)
-	logger.Debugf("ChatHistory: %+v", chatHistory.ToList())
+	logger.Infof("ChatHistory: %+v", p.session.GetChatHistory().ToList())
 	p.session.IncrementChatRound()
 }
 
