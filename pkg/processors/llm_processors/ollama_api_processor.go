@@ -165,4 +165,5 @@ func (p *LLMOllamaApiProcessor) generate(frame *frames.TextFrame, direction proc
 		}
 		return nil
 	})
+	p.QueueFrame(achatbot_frames.NewTurnEndFrame(), direction)
 }
