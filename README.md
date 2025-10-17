@@ -10,6 +10,7 @@ To use the search functionality, you need to set the SERPER_API_KEY environment 
 Example:
 ```bash
 export SERPER_API_KEY=your_serper_api_key
+export SEARCH_API_KEY=your_search_api_key
 ```
 
 ## local VAD+ASR+LLM+TTS Pipeline

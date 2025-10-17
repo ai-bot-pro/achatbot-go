@@ -53,7 +53,7 @@ func NewOpenAIAPIProvider(name, baseUrl, model string) *OpenAIAPIProvider {
 // call /v1/completions
 func (p *OpenAIAPIProvider) Generate(ctx context.Context, args types.LMGenerateArgs, prompt string, respFunc common.OpenAICompletionRespFunc) {
 	completion, err := p.client.Completions.New(
-		context.Background(), openai.CompletionNewParams{
+		ctx, openai.CompletionNewParams{
 			Prompt:           openai.CompletionNewParamsPromptUnion{OfString: param.Opt[string]{Value: prompt}},
 			Model:            openai.CompletionNewParamsModel(p.model),
 			N:                param.Opt[int64]{Value: args.LmN},

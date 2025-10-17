@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
-	"strings"
 
 	"achatbot/pkg/params"
 
@@ -21,7 +21,6 @@ const (
 type SearchApi struct {
 	args params.SearchApiArgs
 }
-
 
 // NewSearchApi creates a new Search API instance
 func NewSearchApi(args params.SearchApiArgs) *SearchApi {
@@ -120,11 +119,11 @@ func (s *SearchApi) WebSearch(query string) (string, error) {
 
 // buildQueryString constructs a query string from a map of parameters
 func buildQueryString(params map[string]string) string {
-	queryParts := make([]string, 0, len(params))
+	values := url.Values{}
 	for key, value := range params {
 		if value != "" {
-			queryParts = append(queryParts, fmt.Sprintf("%s=%s", key, value))
+			values.Add(key, value)
 		}
 	}
-	return strings.Join(queryParts, "&")
+	return values.Encode()
 }
