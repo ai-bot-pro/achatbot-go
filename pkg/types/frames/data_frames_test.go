@@ -1,6 +1,8 @@
 package frames
 
 import (
+	"fmt"
+	"reflect"
 	"testing"
 )
 
@@ -108,7 +110,7 @@ func TestFunctionCallFrame(t *testing.T) {
 	// 创建测试数据
 	toolCallID := "call_1234567890"
 	functionName := "get_current_weather"
-	arguments := `{"location": "San Francisco, CA", "format": "celsius"}`
+	arguments := map[string]any{"location": "San Francisco, CA", "format": "celsius"}
 	index := 0
 
 	// 创建FunctionCallFrame实例
@@ -123,7 +125,7 @@ func TestFunctionCallFrame(t *testing.T) {
 		t.Errorf("Expected functionName %s, got %s", functionName, frame.FunctionName)
 	}
 
-	if frame.Arguments != arguments {
+	if !reflect.DeepEqual(frame.Arguments, arguments) {
 		t.Errorf("Expected arguments %s, got %s", arguments, frame.Arguments)
 	}
 
@@ -145,7 +147,7 @@ func TestFunctionCallFrame(t *testing.T) {
 	expectedContains := []string{
 		"function_name: " + functionName,
 		"tool_call_id: " + toolCallID,
-		"arguments: " + arguments,
+		"arguments: " + fmt.Sprintf("%+v", arguments),
 		"index: 0",
 		"type: function",
 	}
@@ -154,48 +156,5 @@ func TestFunctionCallFrame(t *testing.T) {
 		if !contains(str, expected) {
 			t.Errorf("String method output should contain '%s', got: %s", expected, str)
 		}
-	}
-}
-
-func TestFunctionCallFrameArgumentsDict(t *testing.T) {
-	// 创建测试数据
-	toolCallID := "call_1234567890"
-	functionName := "get_current_weather"
-	arguments := `{"location": "San Francisco, CA", "format": "celsius"}`
-	index := 0
-
-	// 创建FunctionCallFrame实例
-	frame := NewFunctionCallFrame(toolCallID, functionName, arguments, index)
-
-	// 测试ArgumentsDict方法
-	args, err := frame.ArgumentsDict()
-	if err != nil {
-		t.Errorf("ArgumentsDict should not return an error, got: %v", err)
-	}
-
-	// 验证解析结果
-	if location, ok := args["location"]; !ok || location != "San Francisco, CA" {
-		t.Errorf("Expected location 'San Francisco, CA', got %v", location)
-	}
-
-	if format, ok := args["format"]; !ok || format != "celsius" {
-		t.Errorf("Expected format 'celsius', got %v", format)
-	}
-}
-
-func TestFunctionCallFrameArgumentsDictInvalidJSON(t *testing.T) {
-	// 创建测试数据，带有无效的JSON
-	toolCallID := "call_1234567890"
-	functionName := "get_current_weather"
-	arguments := `{"location": "San Francisco, CA", "format":}` // 无效的JSON
-	index := 0
-
-	// 创建FunctionCallFrame实例
-	frame := NewFunctionCallFrame(toolCallID, functionName, arguments, index)
-
-	// 测试ArgumentsDict方法应该返回错误
-	_, err := frame.ArgumentsDict()
-	if err == nil {
-		t.Error("ArgumentsDict should return an error for invalid JSON")
 	}
 }

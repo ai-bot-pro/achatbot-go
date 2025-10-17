@@ -93,6 +93,7 @@ func (p *LLMOpenAIApiProcessor) chat(frame *frames.TextFrame, direction processo
 		}
 	} else {
 		p.provider.ChatStream(context.Background(), p.args, messages, func(resp *openai.ChatCompletionChunk) error {
+			// NOTE: now delta not return thinking, but in raw json, if u want use thinking content
 			if resp.Choices[0].Delta.Content != "" {
 				p.QueueFrame(frames.NewTextFrame(resp.Choices[0].Delta.Content), direction)
 				genContent += resp.Choices[0].Delta.Content
@@ -106,6 +107,7 @@ func (p *LLMOpenAIApiProcessor) chat(frame *frames.TextFrame, direction processo
 
 	p.QueueFrame(achatbot_frames.NewTurnEndFrame(), direction)
 	logger.Debugf("ChatHistory: %+v", chatHistory.ToList())
+	p.session.IncrementChatRound()
 }
 
 func (p *LLMOpenAIApiProcessor) generate(frame *frames.TextFrame, direction processors.FrameDirection) {

@@ -4,6 +4,14 @@
 chatbot with multimodal api
 
 
+## Search Functionality
+To use the search functionality, you need to set the SERPER_API_KEY environment variable.
+
+Example:
+```bash
+export SERPER_API_KEY=your_serper_api_key
+```
+
 ## local VAD+ASR+LLM+TTS Pipeline
 - run local vad+asr+llm+tts pipeline websocket voice agent (not agentic), need download [ollama](https://docs.ollama.com/quickstart) and start ollama server
 

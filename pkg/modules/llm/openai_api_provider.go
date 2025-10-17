@@ -112,7 +112,7 @@ func (p *OpenAIAPIProvider) getChatCompletionNewParams(messages []types.Message,
 		TopP:                param.Opt[float64]{Value: args.LmGenTopP},
 		Stop:                openai.ChatCompletionNewParamsStopUnion{OfStringArray: args.LmGenStops},
 	}
-	if p.name == OpenAIAPIProviderName { //think for openai
+	if p.name == OpenAIAPIProviderName { //think for openai(the same as)
 		if args.LmGenThinking != nil {
 			switch *args.LmGenThinking {
 			case "minimal":
@@ -157,7 +157,7 @@ func (p *OpenAIAPIProvider) Chat(ctx context.Context,
 	}
 }
 
-// stream generate 生成文本token
+// GenerateStream stream generate 生成文本token
 func (p *OpenAIAPIProvider) GenerateStream(ctx context.Context, args types.LMGenerateArgs, prompt string, respFunc common.OpenAIStreamCompletionRespFunc) {
 	stream := p.client.Completions.NewStreaming(
 		ctx, openai.CompletionNewParams{
@@ -185,7 +185,7 @@ func (p *OpenAIAPIProvider) GenerateStream(ctx context.Context, args types.LMGen
 	}
 }
 
-// stream chat 上下文chat_template 指令生成文本token
+// ChatStream stream chat 上下文chat_template 指令生成文本token
 func (p *OpenAIAPIProvider) ChatStream(ctx context.Context, args types.LMGenerateArgs, messages []types.Message, respFunc common.OpenAIStreamChatCompletionRespFunc) {
 
 	params := p.getChatCompletionNewParams(messages, args)

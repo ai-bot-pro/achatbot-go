@@ -31,6 +31,7 @@ type LMGenerateArgs struct {
 	// existing frequency in the text so far, decreasing the model's likelihood to
 	// repeat the same line verbatim.
 	LmGenFrequencyPenalty float64 `json:"lm_gen_frequency_penalty" default:"0.0"`
+	LmGenPresencePenalty  float64 `json:"lm_gen_presence_penalty" default:"0.0"`
 
 	// nil(if llm api support no thinking) or Any of "minimal", "low", "medium", "high".
 	LmGenThinking *string `json:"lm_gen_thinking"`
@@ -50,6 +51,7 @@ func NewLMGenerateArgs() *LMGenerateArgs {
 		LmGenTopP:               0.9,
 		LmGenStops:              []string{},
 		LmGenFrequencyPenalty:   0.0,
+		LmGenPresencePenalty:    0.0,
 		LmGenThinking:           nil,
 		PromptCacheKey:          "",
 	}

@@ -137,3 +137,9 @@ type ITransportWriter interface {
 	//SendText(frame *frames.TextFrame) error
 	//WriteImageFrame(frame *frames.ImageRawFrame) error
 }
+
+type IFunction interface {
+	Execute(args map[string]any) (string, error)
+
+	GetToolCall() map[string]any
+}
