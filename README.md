@@ -1,4 +1,4 @@
-<img width="2246" height="652" alt="achatbot-go_logo" src="https://github.com/user-attachments/assets/e518d228-950e-418c-a810-79a09faad4eb" />
+<img width="1123" height="326" alt="achatbot-go_logo (2)" src="https://github.com/user-attachments/assets/405ad962-6ba7-4367-97b2-64d7e9cbe66e" />
 
 # achatbot-go
 a multimodal chatbot.
