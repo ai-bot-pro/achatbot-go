@@ -1,8 +1,7 @@
 <img width="1123" height="326" alt="Image" src="https://github.com/user-attachments/assets/e1b82973-1bf8-4490-a319-e74faf0e5f06"/>
 
 # achatbot-go
-chatbot with multimodal api
-
+a multimodal chatbot.
 
 ## Search Functionality
 To use the search functionality, you need to set the SERPER_API_KEY environment variable.
@@ -39,10 +38,26 @@ cd examples/websocket/ui/ && python -m http.server
 # - access http://localhost:8000 to Start Audio
 ```
 
+## TODO
+- [ ] 1. support tool-calls
+- [ ] 2. support MCP
+- [ ] 3. local VAD/turn + ASR+LLM+TTS remote api Pipeline
+- [ ] 4. local VAD/turn + E2E/autonomous llm-audio/omni realtime api Pipeline
+- [ ] 5. local Speech-to-Text with Speaker Identification Pipeline
+- [ ] 6. webrtc or websocket+webrtc bridge transports
+- [ ] 7. local voice agent with micphone
+- [ ] 8. 3/4 + streaming avatar api Pipeline
+- [ ] 9. AIGC: gen Image/Music/Video remote api Pipeline
+- [ ] 10. connecting to RAG services for multimodal features
+
+
+
 
 # Acknowledgement
 - [ollama](https://github.com/ollama/ollama)
 - [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx)
+- [pipeline-go](https://github.com/weedge/pipeline-go) | [pipeline-py](https://github.com/ai-bot-pro/pipeline-py)
+
 
 
 # License
