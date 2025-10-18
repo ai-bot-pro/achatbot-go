@@ -39,7 +39,7 @@ cd examples/websocket/ui/ && python -m http.server
 ```
 
 ## TODO
-- [ ] 1. support tool-calls
+- [x] 1. support tool-calls
 - [ ] 2. support MCP
 - [ ] 3. local VAD/turn + ASR+LLM+TTS remote api Pipeline
 - [ ] 4. local VAD/turn + E2E/autonomous llm-audio/omni realtime api Pipeline
