@@ -5,6 +5,6 @@ import (
 )
 
 type Message struct {
-	openai.ChatCompletionMessage
-	ToolCallID string `json:"tool_call_id"` // hook a tool_call_id
+	openai.ChatCompletionMessage `mapstructure:",squash"`
+	ToolCallID                   string `json:"tool_call_id"` // hook a tool_call_id
 }

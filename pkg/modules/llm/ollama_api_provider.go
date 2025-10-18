@@ -39,8 +39,8 @@ func NewOllamaAPIProvider(name, model string, stream bool, thinking *string, gen
 
 	tools := api.Tools{}
 	if len(toolNames) > 0 {
-		mapTools := functions.RegisterFuncs.GetToolCallsByName(toolNames)
-		tools, err = functions.AdapteOllamaSearchToolSchema(mapTools)
+		mapTools := functions.RegisterFuncs.GetOllamaAPIToolCallsByName(toolNames)
+		tools, err = functions.AdapteOllamaToolSchema(mapTools)
 		if err != nil {
 			logger.Error("NewOllamaAPIProvider failed with Tools", "error", err)
 			return nil

@@ -4,6 +4,7 @@ package llm
 
 import (
 	"achatbot/pkg/common"
+	"achatbot/pkg/modules/functions"
 	"achatbot/pkg/types"
 	"context"
 	"os"
@@ -20,6 +21,7 @@ type OpenAIAPIProvider struct {
 	name   string
 	model  string
 	client openai.Client
+	tools  []openai.ChatCompletionToolUnionParam
 }
 
 const (
@@ -33,17 +35,29 @@ const (
 	OpenRouterAIAPIProviderModelQwen2_5_72b_free = "qwen/qwen-2.5-72b-instruct:free"
 )
 
-func NewOpenAIAPIProvider(name, baseUrl, model string) *OpenAIAPIProvider {
+func NewOpenAIAPIProvider(name, baseUrl, model string, toolNames []string) *OpenAIAPIProvider {
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	client := openai.NewClient(
 		option.WithAPIKey(apiKey),
 		option.WithBaseURL(baseUrl),
 	)
 
+	tools := []openai.ChatCompletionToolUnionParam{}
+	if len(toolNames) > 0 {
+		mapTools := functions.RegisterFuncs.GetToolCallsByName(toolNames)
+		toolSchema, err := functions.AdapteOpenAIToolSchema(mapTools)
+		if err != nil {
+			logger.Error("NewOpenAIAPIProvider failed with Tools", "error", err)
+			return nil
+		}
+		tools = toolSchema
+		logger.Infof("use Tools: %v", toolNames)
+	}
 	p := &OpenAIAPIProvider{
 		name:   name,
 		model:  model,
 		client: client,
+		tools:  tools,
 	}
 
 	return p
@@ -98,12 +112,26 @@ func (p *OpenAIAPIProvider) convertMessages(messages []types.Message) []openai.C
 			if msg.ToolCalls != nil { // tool_calls
 				toolCalls := []openai.ChatCompletionMessageToolCallUnionParam{}
 				for _, toolCall := range msg.ToolCalls {
-					toolCalls = append(toolCalls, toolCall.ToParam())
+					toolCalls = append(
+						toolCalls,
+						openai.ChatCompletionMessageToolCallUnionParam{
+							OfFunction: &openai.ChatCompletionMessageFunctionToolCallParam{
+								ID:   toolCall.ID,
+								Type: constant.Function(toolCall.Type),
+								Function: openai.ChatCompletionMessageFunctionToolCallFunctionParam{
+									Name:      toolCall.Function.Name,
+									Arguments: toolCall.Function.Arguments,
+								},
+							},
+						},
+					)
 				}
-				msgUnion = append(msgUnion, openai.ChatCompletionMessageParamUnion{OfAssistant: &openai.ChatCompletionAssistantMessageParam{
-					Role:      msg.Role,
-					ToolCalls: toolCalls,
-				}})
+				if len(toolCalls) > 0 {
+					msgUnion = append(msgUnion, openai.ChatCompletionMessageParamUnion{OfAssistant: &openai.ChatCompletionAssistantMessageParam{
+						Role:      msg.Role,
+						ToolCalls: toolCalls,
+					}})
+				}
 			}
 		case "tool":
 			msgUnion = append(msgUnion, openai.ChatCompletionMessageParamUnion{
@@ -122,6 +150,7 @@ func (p *OpenAIAPIProvider) convertMessages(messages []types.Message) []openai.C
 func (p *OpenAIAPIProvider) getChatCompletionNewParams(messages []types.Message, args types.LMGenerateArgs) openai.ChatCompletionNewParams {
 	params := openai.ChatCompletionNewParams{
 		Messages:            p.convertMessages(messages),
+		Tools:               p.tools,
 		Model:               shared.ChatModel(p.model),
 		PromptCacheKey:      param.Opt[string]{Value: args.PromptCacheKey},
 		N:                   param.Opt[int64]{Value: args.LmN},

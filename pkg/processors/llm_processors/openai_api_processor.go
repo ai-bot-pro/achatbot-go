@@ -20,11 +20,12 @@ import (
 
 type LLMOpenAIApiProcessor struct {
 	*processors.AsyncFrameProcessor
-	provider common.IOpenAILLMProvider
-	session  *common.Session
-	mode     string
-	stream   bool
-	args     types.LMGenerateArgs
+	provider       common.IOpenAILLMProvider
+	session        *common.Session
+	mode           string
+	stream         bool
+	args           types.LMGenerateArgs
+	isHistoryThink bool
 }
 
 func NewLLMOpenAIApiProcessor(
@@ -35,14 +36,20 @@ func NewLLMOpenAIApiProcessor(
 		session = common.NewSession(uuid.NewString(), nil)
 	}
 	p := &LLMOpenAIApiProcessor{
-		AsyncFrameProcessor: processors.NewAsyncFrameProcessorWithPushQueueSize("LLMOpenAIApiProcessor", 128, 128),
+		AsyncFrameProcessor: processors.NewAsyncFrameProcessorWithPushQueueSize("LLMOpenAIApiProcessor", 1024, 1024),
 		provider:            provider,
 		session:             session,
 		mode:                mode,
 		stream:              stream,
 		args:                args,
+		isHistoryThink:      false,
 	}
 
+	return p
+}
+
+func (p *LLMOpenAIApiProcessor) WithIsHistoryThink(isHistoryThink bool) *LLMOpenAIApiProcessor {
+	p.isHistoryThink = isHistoryThink
 	return p
 }
 
@@ -102,6 +109,7 @@ func (p *LLMOpenAIApiProcessor) chat(frame *frames.TextFrame, direction processo
 			logger.Error("chat", "err", "too many tool calls")
 			break
 		}
+		cnToolCalls++
 		if !p.stream {
 			p.provider.Chat(context.Background(), p.args, messages, func(resp *openai.ChatCompletion) error {
 				toolMsgs := []types.Message{}
@@ -129,19 +137,24 @@ func (p *LLMOpenAIApiProcessor) chat(frame *frames.TextFrame, direction processo
 				}
 				// If there is a was a function call, continue the conversation
 				if len(toolMsgs) > 0 { //call_tools
+					if !p.isHistoryThink {
+						resp.Choices[0].Message.Reasoning = ""
+					}
 					msg := types.Message{ChatCompletionMessage: resp.Choices[0].Message}
 					messages = append(messages, msg)
 					p.appendHistoryChatMessages([]types.Message{msg})
 					messages = append(messages, toolMsgs...)
 					p.appendHistoryChatMessages(toolMsgs)
 					isToolCalls = true
-					cnToolCalls++
 				}
 				if resp.Choices[0].Message.Reasoning != "" {
 					p.QueueFrame(achatbot_frames.NewThinkTextFrame(resp.Choices[0].Message.Reasoning), direction)
 				}
 				if resp.Choices[0].Message.Content != "" {
 					isToolCalls = false
+					if !p.isHistoryThink {
+						resp.Choices[0].Message.Reasoning = ""
+					}
 					msg := types.Message{ChatCompletionMessage: resp.Choices[0].Message}
 					messages = append(messages, msg)
 					p.appendHistoryChatMessages([]types.Message{msg})
@@ -190,6 +203,9 @@ func (p *LLMOpenAIApiProcessor) chat(frame *frames.TextFrame, direction processo
 			})
 			// If there is a was a function call, continue the conversation
 			if len(toolMsgs) > 0 { //call_tools
+				if !p.isHistoryThink {
+					acc.Choices[0].Message.Reasoning = ""
+				}
 				msg := types.Message{ChatCompletionMessage: acc.Choices[0].Message}
 				messages = append(messages, msg)
 				p.appendHistoryChatMessages([]types.Message{msg})
@@ -199,11 +215,14 @@ func (p *LLMOpenAIApiProcessor) chat(frame *frames.TextFrame, direction processo
 				cnToolCalls++
 			}
 
-			if acc.Choices[0].Message.Content != "" {
-				isToolCalls = false
+			if len(acc.Choices) > 0 && acc.Choices[0].Message.Content != "" {
+				if !p.isHistoryThink {
+					acc.Choices[0].Message.Reasoning = ""
+				}
 				msg := types.Message{ChatCompletionMessage: acc.Choices[0].Message}
 				messages = append(messages, msg)
 				p.appendHistoryChatMessages([]types.Message{msg})
+				isToolCalls = false
 			}
 		} //end stream
 	} //end call

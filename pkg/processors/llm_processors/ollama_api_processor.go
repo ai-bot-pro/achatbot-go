@@ -33,7 +33,7 @@ func NewLLMOllamaApiProcessor(provider *llm.OllamaAPIProvider, session *common.S
 		session = common.NewSession(uuid.NewString(), nil)
 	}
 	p := &LLMOllamaApiProcessor{
-		AsyncFrameProcessor: processors.NewAsyncFrameProcessorWithPushQueueSize("LLMOllamaApiProcessor", 128, 128),
+		AsyncFrameProcessor: processors.NewAsyncFrameProcessorWithPushQueueSize("LLMOllamaApiProcessor", 1024, 1024),
 		provider:            provider,
 		session:             session,
 		mode:                mode,
@@ -98,6 +98,7 @@ func (p *LLMOllamaApiProcessor) chat(frame *frames.TextFrame, direction processo
 			logger.Error("chat", "err", "too many tool calls")
 			break
 		}
+		cnToolCalls++
 		genThinking, genContent := "", ""
 		p.provider.Chat(context.Background(), messages, func(resp api.ChatResponse) error {
 			if resp.Done {
@@ -125,7 +126,6 @@ func (p *LLMOllamaApiProcessor) chat(frame *frames.TextFrame, direction processo
 					messages = append(messages, toolMsgs...)
 					p.appendHistoryChatMessages(toolMsgs)
 					isToolCalls = true
-					cnToolCalls++
 				}
 			}
 			if resp.Message.Thinking != "" {

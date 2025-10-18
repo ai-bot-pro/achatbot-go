@@ -75,6 +75,30 @@ func (r *RegisteredFunctions) GetToolCallsByName(names []string) []map[string]an
 	return toolCalls
 }
 
+func (r *RegisteredFunctions) GetOllamaAPIToolCall(name string) map[string]any {
+	return (*r)[name].GetOllamaAPIToolCall()
+}
+
+func (r *RegisteredFunctions) GetOllamaAPIToolCalls() []map[string]any {
+	toolCalls := make([]map[string]any, 0)
+	for name := range *r {
+		toolCall := (*r)[name].GetOllamaAPIToolCall()
+		toolCalls = append(toolCalls, toolCall)
+	}
+	return toolCalls
+}
+
+func (r *RegisteredFunctions) GetOllamaAPIToolCallsByName(names []string) []map[string]any {
+	toolCalls := make([]map[string]any, 0)
+	for name := range *r {
+		if slices.Contains(names, name) {
+			toolCall := (*r)[name].GetOllamaAPIToolCall()
+			toolCalls = append(toolCalls, toolCall)
+		}
+	}
+	return toolCalls
+}
+
 func (r *RegisteredFunctions) Execute(name string, args map[string]any) (string, error) {
 	return (*r)[name].Execute(args)
 }

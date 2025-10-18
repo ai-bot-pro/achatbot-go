@@ -33,6 +33,10 @@ func (s *SearchApi) GetToolCall() map[string]any {
 	return SearchToolSchema
 }
 
+func (s *SearchApi) GetOllamaAPIToolCall() map[string]any {
+	return OllamaAPISearchToolSchema
+}
+
 func (s *SearchApi) Execute(args map[string]any) (string, error) {
 	err := mapstructure.Decode(args, &s.args)
 	if err != nil {

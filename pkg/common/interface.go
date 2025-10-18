@@ -142,4 +142,6 @@ type IFunction interface {
 	Execute(args map[string]any) (string, error)
 
 	GetToolCall() map[string]any
+
+	GetOllamaAPIToolCall() map[string]any
 }

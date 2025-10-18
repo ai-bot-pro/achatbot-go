@@ -20,14 +20,15 @@ import (
 // AudioVADInputProcessor processes audio input with VAD
 type AudioVADInputProcessor struct {
 	*processors.AsyncFrameProcessor
-	params        *params.AudioVADParams
-	ctx           context.Context
-	cancel        context.CancelFunc
-	audioInQueue  chan *frames.AudioRawFrame
-	audioTask     *sync.WaitGroup
-	pushFrameTask *sync.WaitGroup
-	vadAnalyzer   common.IVADAnalyzer
-	vadRingBuffer *utils.RingBuffer // buffer audio byte
+	params           *params.AudioVADParams
+	ctx              context.Context
+	cancel           context.CancelFunc
+	audioInQueue     chan *frames.AudioRawFrame
+	isPushAudioBlock bool
+	audioTask        *sync.WaitGroup
+	pushFrameTask    *sync.WaitGroup
+	vadAnalyzer      common.IVADAnalyzer
+	vadRingBuffer    *utils.RingBuffer // buffer audio byte
 }
 
 // NewAudioVADInputProcessor creates a new AudioVADInputProcessor
@@ -40,6 +41,7 @@ func NewAudioVADInputProcessor(name string, params *params.AudioVADParams) *Audi
 		ctx:                 ctx,
 		cancel:              cancel,
 		audioInQueue:        make(chan *frames.AudioRawFrame, 1024), // buffer size
+		isPushAudioBlock:    false,
 		audioTask:           &sync.WaitGroup{},
 		pushFrameTask:       &sync.WaitGroup{},
 		vadAnalyzer:         params.VADAnalyzer,
@@ -112,13 +114,17 @@ func (p *AudioVADInputProcessor) Cancel(frame *frames.CancelFrame) {
 // PushAudioFrame pushes an audio frame to the queue
 func (p *AudioVADInputProcessor) PushAudioFrame(frame *frames.AudioRawFrame) error {
 	if p.params.AudioInEnabled || p.params.VADEnabled {
-		select {
-		case p.audioInQueue <- frame:
-			return nil
-		case <-p.ctx.Done():
-			return p.ctx.Err()
-		default:
-			logger.Warnf("%s audioInQueue is full, cannot push frame %s", p.Name(), frame.String())
+		if p.isPushAudioBlock {
+			p.audioInQueue <- frame
+		} else {
+			select {
+			case p.audioInQueue <- frame:
+				return nil
+			case <-p.ctx.Done():
+				return p.ctx.Err()
+			default:
+				logger.Warnf("%s audioInQueue is full, cannot push frame %s", p.Name(), frame.String())
+			}
 		}
 	}
 	return nil
@@ -265,6 +271,7 @@ func (p *AudioVADInputProcessor) ProcessFrame(frame frames.Frame, direction proc
 	switch f := frame.(type) {
 	case *frames.StartFrame:
 		p.PushFrame(f, direction)
+		p.isPushAudioBlock = f.IsPushBlock
 		p.Start(f)
 	case *frames.EndFrame:
 		p.PushFrame(f, direction)
@@ -286,6 +293,7 @@ func (p *AudioVADInputProcessor) ProcessFrame(frame frames.Frame, direction proc
 
 // Cleanup performs cleanup operations
 func (p *AudioVADInputProcessor) Cleanup() {
+	logger.Info("AudioVADInputProcessor Cleanup Start")
 	// Close the audio input queue
 	if p.audioInQueue != nil {
 		close(p.audioInQueue)
