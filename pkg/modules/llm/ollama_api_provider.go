@@ -1,6 +1,7 @@
 package llm
 
 import (
+	"achatbot/pkg/modules/functions"
 	"context"
 	"maps"
 	"strings"
@@ -26,14 +27,25 @@ const (
 
 func NewOllamaAPIProviderWithoutTools(
 	name, model string, stream bool, thinking *string, genArgs map[string]any) *OllamaAPIProvider {
-	return NewOllamaAPIProvider(name, model, stream, thinking, nil, genArgs)
+	return NewOllamaAPIProvider(name, model, stream, thinking, genArgs, nil)
 }
 
-func NewOllamaAPIProvider(name, model string, stream bool, thinking *string, tools api.Tools, genArgs map[string]any) *OllamaAPIProvider {
+func NewOllamaAPIProvider(name, model string, stream bool, thinking *string, genArgs map[string]any, toolNames []string) *OllamaAPIProvider {
 	client, err := api.ClientFromEnvironment()
 	if err != nil {
 		logger.Error("NewOllamaAPIProvider failed", "error", err)
 		return nil
+	}
+
+	tools := api.Tools{}
+	if len(toolNames) > 0 {
+		mapTools := functions.RegisterFuncs.GetOllamaAPIToolCallsByName(toolNames)
+		tools, err = functions.AdapteOllamaToolSchema(mapTools)
+		if err != nil {
+			logger.Error("NewOllamaAPIProvider failed with Tools", "error", err)
+			return nil
+		}
+		logger.Infof("use Tools: %v", toolNames)
 	}
 
 	p := &OllamaAPIProvider{
@@ -98,12 +110,6 @@ func (p *OllamaAPIProvider) Chat(ctx context.Context, messages []api.Message, re
 
 func (p *OllamaAPIProvider) Name() string {
 	return p.name
-}
-
-func (p *OllamaAPIProvider) Release() {
-}
-
-func (p *OllamaAPIProvider) Warmup() {
 }
 
 // UpdateGenArgs updates the GenerateArgs with the provided values

@@ -3,6 +3,15 @@
 # achatbot-go
 a multimodal chatbot.
 
+## Search Functionality
+To use the search functionality, you need to set the SERPER_API_KEY environment variable.
+
+Example:
+```bash
+export SERPER_API_KEY=your_serper_api_key
+export SEARCH_API_KEY=your_search_api_key
+```
+
 ## local VAD+ASR+LLM+TTS Pipeline
 - run local vad+asr+llm+tts pipeline websocket voice agent (not agentic), need download [ollama](https://docs.ollama.com/quickstart) and start ollama server
 
@@ -30,7 +39,7 @@ cd examples/websocket/ui/ && python -m http.server
 ```
 
 ## TODO
-- [ ] 1. support tool-calls
+- [x] 1. support tool-calls
 - [ ] 2. support MCP
 - [ ] 3. local VAD/turn + ASR+LLM+TTS remote api Pipeline
 - [ ] 4. local VAD/turn + E2E/autonomous llm-audio/omni realtime api Pipeline

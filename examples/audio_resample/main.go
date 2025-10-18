@@ -36,7 +36,7 @@ func main() {
 	// Example with real-world scenario: converting byte array of int16 samples
 	// First, let's create some int16 samples
 	int16Samples := make([]byte, 480) // 240 samples * 2 bytes per sample
-	for i := 0; i < 240; i++ {
+	for i := range 240 {
 		// Convert float to int16
 		sample := int16(inputSamples[i] * 32767)
 		int16Samples[i*2] = byte(sample & 0xFF)

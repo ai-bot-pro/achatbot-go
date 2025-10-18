@@ -1,9 +1,13 @@
 package common
 
 import (
+	"context"
+
+	"github.com/openai/openai-go/v3"
 	"github.com/weedge/pipeline-go/pkg/frames"
 
 	"achatbot/pkg/consts"
+	"achatbot/pkg/types"
 	achatbot_frames "achatbot/pkg/types/frames"
 )
 
@@ -25,7 +29,7 @@ type IVADAnalyzer interface {
 	Release()
 }
 
-// IVoiceConfidenceProvider 语音置信度提供者接口
+// IVoiceConfidenceProvider local语音置信度提供者接口
 type IVoiceConfidenceProvider interface {
 	// IsActiveSpeech 判断当前音频是否是活跃的语音。
 	IsActiveSpeech(audio []byte) bool
@@ -48,7 +52,7 @@ type IVoiceConfidenceProvider interface {
 
 // ------------------------------------------------------------
 
-// IASRProvider 语音识别提供者接口
+// IASRProvider local语音识别提供者接口
 type IASRProvider interface {
 	// Transcribe 语音转录文本
 	Transcribe(audio []byte) string
@@ -65,19 +69,24 @@ type IASRProvider interface {
 
 // ------------------------------------------------------------
 
-// ILLMProvider 生成模型提供者接口
-type ILLMProvider interface {
+type OpenAIStreamChatCompletionRespFunc func(*openai.ChatCompletionChunk) error
+type OpenAIChatCompletionRespFunc func(*openai.ChatCompletion) error
+type OpenAIStreamCompletionRespFunc func(*openai.Completion) error
+type OpenAICompletionRespFunc func(*openai.Completion) error
+
+// IOpenAILLMProvider remote生成模型提供者接口
+type IOpenAILLMProvider interface {
 	// generate 生成文本token
-	Generate(prompt string) string
+	Generate(ctx context.Context, args types.LMGenerateArgs, prompt string, respFunc OpenAICompletionRespFunc)
 
 	// chat 上下文chat_template 指令生成文本token
-	Chat(prompt string) string
+	Chat(ctx context.Context, args types.LMGenerateArgs, messages []types.Message, respFunc OpenAIChatCompletionRespFunc)
 
-	// Warmup 预热
-	Warmup()
+	// stream generate 生成文本token
+	GenerateStream(ctx context.Context, args types.LMGenerateArgs, prompt string, respFunc OpenAIStreamCompletionRespFunc)
 
-	// Release 释放资源。
-	Release()
+	// stream chat 上下文chat_template 指令生成文本token
+	ChatStream(ctx context.Context, args types.LMGenerateArgs, messages []types.Message, respFunc OpenAIStreamChatCompletionRespFunc)
 
 	// Name 返回生成文本token提供者的名称。
 	Name() string
@@ -127,4 +136,12 @@ type ITransportWriter interface {
 	//SendMessage(frame *achatbot_frames.TransportMessageFrame) error
 	//SendText(frame *frames.TextFrame) error
 	//WriteImageFrame(frame *frames.ImageRawFrame) error
+}
+
+type IFunction interface {
+	Execute(args map[string]any) (string, error)
+
+	GetToolCall() map[string]any
+
+	GetOllamaAPIToolCall() map[string]any
 }

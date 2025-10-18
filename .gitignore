@@ -47,3 +47,6 @@ resources/
 
 # audio
 .wav
+
+.vscode/
+TODO.md

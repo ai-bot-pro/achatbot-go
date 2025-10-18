@@ -31,6 +31,7 @@ import (
 	achatbot_aggregators "achatbot/pkg/processors/aggregators"
 	"achatbot/pkg/processors/llm_processors"
 	"achatbot/pkg/transports"
+	"achatbot/pkg/types"
 	achatbot_frames "achatbot/pkg/types/frames"
 )
 
@@ -98,6 +99,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	// Set Session
 	clientId := fmt.Sprintf("%s_%s", conn.RemoteAddr().Network(), conn.RemoteAddr().String())
 	session := common.NewSession(clientId, nil)
+	session.InitChatMessage(map[string]any{"role": "system", "content": consts.DefaultLLMSystemPrompt})
 
 	// vad provider
 	sherpaOnnxProvider := vad_analyzer.NewSherpaOnnxProvider(
@@ -141,8 +143,13 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	audioCameraParams.WithAudioOutSampleWidth(outSampleWidth).WithAudioOutSampleRate(outRate).WithAudioOutChannels(outChannels)
 
 	// Set LLM Processor
-	llmProvider := llm.NewOllamaAPIProviderWithoutTools(llm.OllamaAPIProviderName, llm.OllamaAPIProviderModel_QWEN3_0_6, true, nil, nil)
-	llmProcessor := llm_processors.NewLLMOllamaApiProcessor(llmProvider, session, llm_processors.Mode_Chat)
+	//llmProvider := llm.NewOllamaAPIProviderWithoutTools(llm.OllamaAPIProviderName, llm.OllamaAPIProviderModel_QWEN3_0_6, true, nil, nil)
+	//llmProvider := llm.NewOllamaAPIProvider(llm.OllamaAPIProviderName, llm.OllamaAPIProviderModel_QWEN3_0_6, true, nil, nil, []string{"web_search"})
+	//llmProcessor := llm_processors.NewLLMOllamaApiProcessor(llmProvider, session, llm_processors.Mode_Chat)
+	llmProvider := llm.NewOpenAIAPIProvider(llm.OllamaAPIProviderName, llm.OllamaAPIProviderBaseUrl, llm.OllamaAPIProviderModel_QWEN3_0_6, []string{"web_search"})
+	//llmProvider := llm.NewOpenAIAPIProvider(llm.OpenAIAPIProviderName, llm.OpenRouterAIAPIProviderBaseUrl, llm.OpenRouterAIAPIProviderModelQwen2_5_72b_free)
+	//llmProvider := llm.NewOpenAIAPIProvider(llm.OpenAIAPIProviderName, llm.OpenRouterAIAPIProviderBaseUrl, llm.OpenRouterAIAPIProviderModelQwen3_235b_free)
+	llmProcessor := llm_processors.NewLLMOpenAIApiProcessor(llmProvider, session, llm_processors.Mode_Chat, true, *types.NewLMGenerateArgs())
 
 	// Set Sentence Processor
 	sentenceProcessor := aggregators.NewSentenceAggregatorWithEnd(reflect.TypeOf(&achatbot_frames.TurnEndFrame{}))
@@ -168,7 +175,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 				reflect.TypeOf(&achatbot_frames.VADStateAudioRawFrame{}),
 			),
 			processors.NewDefaultFrameLoggerProcessorWithIncludeFrame([]frames.Frame{&frames.AudioRawFrame{}, &achatbot_frames.VADStateAudioRawFrame{}}),
-			achatbot_processors.NewAudioSaveProcessor("user_speak", consts.RECORDS_DIR, true),
+			//achatbot_processors.NewAudioSaveProcessor("user_speak", consts.RECORDS_DIR, true),
 			asrProcessor.WithPassRawAudio(false),
 			processors.NewDefaultFrameLoggerProcessorWithIncludeFrame([]frames.Frame{&frames.TextFrame{}}),
 			llmProcessor,
@@ -179,7 +186,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			processors.NewDefaultFrameLoggerProcessorWithIncludeFrame([]frames.Frame{&frames.AudioRawFrame{}}),
 			//achatbot_processors.NewAudioResampleProcessor(audioCameraParams.AudioOutSampleRate),
 			//processors.NewDefaultFrameLoggerProcessorWithIncludeFrame([]frames.Frame{&frames.AudioRawFrame{}}),
-			achatbot_processors.NewAudioSaveProcessor("bot_speak", consts.RECORDS_DIR, true),
+			//achatbot_processors.NewAudioSaveProcessor("bot_speak", consts.RECORDS_DIR, true),
 			processors.NewDefaultFrameLoggerProcessorWithIncludeFrame([]frames.Frame{&frames.AudioRawFrame{}}),
 			ws_transport.OutputProcessor(),
 		},
@@ -191,7 +198,8 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	// In a real application, you would integrate this with your frame processing pipeline
 	// and properly manage the processor lifecycle
 	// 3. Create and run a pipeline task
-	task := pipeline.NewPipelineTask(myPipeline, pipeline.PipelineParams{})
+	// NOTE: set IsPushBlock: false, IsUpPushBlock: false to debug queue frame and check slow process
+	task := pipeline.NewPipelineTask(myPipeline, pipeline.PipelineParams{IsPushBlock: true, IsUpPushBlock: true})
 
 	// Add task to active tasks map
 	serverMu.Lock()
