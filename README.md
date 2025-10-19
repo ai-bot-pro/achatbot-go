@@ -49,9 +49,10 @@ cd examples/websocket/ui/ && python -m http.server
 - [ ] 8. 3/4 + streaming avatar api Pipeline
 - [ ] 9. AIGC: gen Image/Music/Video remote api Pipeline
 - [ ] 10. connecting to RAG services for multimodal features with breaker
-- [ ] 11. config and service api for metadata manage with (Rate Limiter(IP))
-
-
+- [ ] 11. config and hot reload
+- [x] 12. service api add Rate Limiter(IP)
+- [x] 13. add pool for modules provider to init load, when connect to get provider to use
+- [ ] 14. dockerfile and CD (cloud: AWS ECS, GCP GKE, Azure AKS)
 
 # Acknowledgement
 - [ollama](https://github.com/ollama/ollama)
