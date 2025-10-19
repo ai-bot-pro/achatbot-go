@@ -11,13 +11,18 @@ import (
 	achatbot_frames "achatbot/pkg/types/frames"
 )
 
+type IPoolInstance interface {
+	// Reset 重置池中的实例状态
+	Reset() error
+
+	// Destroy 销毁池中的实例
+	Release() error
+}
+
 // IVADAnalyzer 定义了语音活动检测（VAD）分析器的接口。
 type IVADAnalyzer interface {
 	// AnalyzeAudio 对输入的音频缓冲区进行分析，返回 VAD Frame
 	AnalyzeAudio(buffer []byte) *achatbot_frames.VADStateAudioRawFrame
-
-	// Reset 重置 VAD 的统计信息和模型状态。
-	Reset()
 
 	// GetSampleRate 返回 VAD 的采样率。
 	GetSampleRate() int
@@ -25,8 +30,9 @@ type IVADAnalyzer interface {
 	// GetWindowSize 返回 VAD 的采样窗口大小。
 	GetWindowSize() int
 
+	// Reset 重置 VAD 的统计信息和模型状态。
 	// Release 释放资源。
-	Release()
+	IPoolInstance
 }
 
 // IVoiceConfidenceProvider local语音置信度提供者接口
@@ -37,17 +43,15 @@ type IVoiceConfidenceProvider interface {
 	// Warmup 预热
 	Warmup()
 
-	// Reset 重置 VAD 模型状态(单轮识别)。
-	Reset()
-
-	// Release 释放资源。
-	Release()
-
 	// GetSampleInfo 返回语音置信度提供者的采样率信息和采样窗口大小。
 	GetSampleInfo() (int, int)
 
 	// Name 返回语音置信度提供者的名称。
 	Name() string
+
+	// Reset 重置 VAD 模型状态(单轮识别)。
+	// Release 释放资源。
+	IPoolInstance
 }
 
 // ------------------------------------------------------------
@@ -60,11 +64,12 @@ type IASRProvider interface {
 	// Warmup 预热
 	Warmup()
 
-	// Release 释放资源。
-	Release()
-
 	// Name 返回语音识别提供者的名称。
 	Name() string
+
+	// Release 释放资源。
+	// Reset 重置状态。
+	IPoolInstance
 }
 
 // ------------------------------------------------------------
@@ -108,11 +113,12 @@ type ITTSProvider interface {
 	// SetPromptAudio 设置Prompt Audio shot示例样本去生成对应特征的声音
 	SetPromptAudio(string, []byte) error
 
-	// Release 释放资源。
-	Release()
-
 	// Name 返回文本合成语音提供者的名称。
 	Name() string
+
+	// Release 释放资源。
+	// Reset 重置状态。
+	IPoolInstance
 }
 
 // --------------------------------------------------------------------
@@ -139,9 +145,12 @@ type ITransportWriter interface {
 }
 
 type IFunction interface {
+	// Execute 执行函数
 	Execute(args map[string]any) (string, error)
 
+	// GetToolCall 获取 openai 标准 tool call schema
 	GetToolCall() map[string]any
 
+	// GetOllamaAPIToolCall 获取 ollama 自定义的 toolcall schema
 	GetOllamaAPIToolCall() map[string]any
 }

@@ -26,7 +26,6 @@ type AudioVADInputProcessor struct {
 	audioInQueue     chan *frames.AudioRawFrame
 	isPushAudioBlock bool
 	audioTask        *sync.WaitGroup
-	pushFrameTask    *sync.WaitGroup
 	vadAnalyzer      common.IVADAnalyzer
 	vadRingBuffer    *utils.RingBuffer // buffer audio byte
 }
@@ -43,7 +42,6 @@ func NewAudioVADInputProcessor(name string, params *params.AudioVADParams) *Audi
 		audioInQueue:        make(chan *frames.AudioRawFrame, 1024), // buffer size
 		isPushAudioBlock:    false,
 		audioTask:           &sync.WaitGroup{},
-		pushFrameTask:       &sync.WaitGroup{},
 		vadAnalyzer:         params.VADAnalyzer,
 		vadRingBuffer: utils.NewRingBuffer(
 			params.AudioInBufferSecs * params.AudioParams.AudioInSampleRate * params.AudioParams.AudioInSampleWidth,
@@ -76,26 +74,9 @@ func (p *AudioVADInputProcessor) Stop() {
 	logger.Info("AudioVADInputProcessor Stopping")
 	if p.params.AudioInEnabled || p.params.VADEnabled {
 		p.cancel()
-		p.audioTask.Wait()
+		utils.WaitGroupTaskTimeOut(context.Background(), p.audioTask, time.Second)
 	}
 
-	// Wait for push frame task to finish with timeout
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-
-	done := make(chan struct{})
-	go func() {
-		p.pushFrameTask.Wait()
-		close(done)
-	}()
-
-	select {
-	case <-done:
-		// Task completed successfully
-	case <-ctx.Done():
-		// Timeout occurred
-		logger.Warn("Timeout occurred while waiting for push frame task to finish")
-	}
 	logger.Info("AudioVADInputProcessor Stop Done")
 }
 
@@ -104,7 +85,7 @@ func (p *AudioVADInputProcessor) Cancel(frame *frames.CancelFrame) {
 	logger.Info("AudioVADInputProcessor Cancelling")
 	if p.params.AudioInEnabled || p.params.VADEnabled {
 		p.cancel()
-		p.audioTask.Wait()
+		utils.WaitGroupTaskTimeOut(context.Background(), p.audioTask, time.Second)
 	}
 
 	// p.Cleanup() // pipeline.Cleanup() to call processor Cleanup
@@ -114,8 +95,17 @@ func (p *AudioVADInputProcessor) Cancel(frame *frames.CancelFrame) {
 // PushAudioFrame pushes an audio frame to the queue
 func (p *AudioVADInputProcessor) PushAudioFrame(frame *frames.AudioRawFrame) error {
 	if p.params.AudioInEnabled || p.params.VADEnabled {
+		if p.audioInQueue == nil {
+			logger.Warnf("%s audioInQueue is nil, cannot push frame %s", p.Name(), frame.String())
+			return nil
+		}
 		if p.isPushAudioBlock {
-			p.audioInQueue <- frame
+			select {
+			case p.audioInQueue <- frame:
+				return nil
+			case <-p.ctx.Done():
+				return p.ctx.Err()
+			}
 		} else {
 			select {
 			case p.audioInQueue <- frame:

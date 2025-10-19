@@ -106,8 +106,13 @@ func (p *SherpaOnnxProvider) SetPromptAudio(string, []byte) error {
 	return nil
 }
 
-func (p *SherpaOnnxProvider) Release() {
+func (p *SherpaOnnxProvider) Reset() error {
+	return nil
+}
+
+func (p *SherpaOnnxProvider) Release() error {
 	sherpa.DeleteOfflineTts(p.tts)
+	return nil
 }
 
 func (p *SherpaOnnxProvider) Name() string {

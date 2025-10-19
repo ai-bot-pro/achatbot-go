@@ -55,7 +55,7 @@ func NewVADAnalyzer(args *params.VADAnalyzerArgs, vcp common.IVoiceConfidencePro
 }
 
 // Reset 重置分析器状态
-func (b *VADAnalyzer) Reset() {
+func (b *VADAnalyzer) Reset() error {
 	b.vadStartingCount = 0
 	b.vadStoppingCount = 0
 	b.vadState = types.Quiet
@@ -65,7 +65,8 @@ func (b *VADAnalyzer) Reset() {
 	b.startAtS = 0.0
 	b.curAtS = 0.0
 	b.endAtS = 0.0
-	b.IVoiceConfidenceProvider.Reset()
+
+	return b.IVoiceConfidenceProvider.Reset()
 }
 
 func (b *VADAnalyzer) GetSampleRate() int {
@@ -73,8 +74,8 @@ func (b *VADAnalyzer) GetSampleRate() int {
 	return sr
 }
 
-func (b *VADAnalyzer) Release() {
-	b.IVoiceConfidenceProvider.Release()
+func (b *VADAnalyzer) Release() error {
+	return b.IVoiceConfidenceProvider.Release()
 }
 
 // GetWindowSize 计算需要的帧数
