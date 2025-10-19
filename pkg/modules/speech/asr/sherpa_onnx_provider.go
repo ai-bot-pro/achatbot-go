@@ -165,8 +165,13 @@ func (p *SherpaOnnxProvider) Transcribe(data []byte) string {
 func (p *SherpaOnnxProvider) Warmup() {
 }
 
-func (p *SherpaOnnxProvider) Release() {
+func (p *SherpaOnnxProvider) Reset() error {
+	return nil
+}
+
+func (p *SherpaOnnxProvider) Release() error {
 	sherpa.DeleteOfflineRecognizer(p.recognizer)
+	return nil
 }
 
 func (p *SherpaOnnxProvider) Name() string {

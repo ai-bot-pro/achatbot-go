@@ -118,12 +118,14 @@ func (s *SherpaOnnxProvider) Name() string {
 	return s.name
 }
 
-func (s *SherpaOnnxProvider) Reset() {
+func (s *SherpaOnnxProvider) Reset() error {
 	s.vad.Reset()
+	return nil
 }
 
-func (s *SherpaOnnxProvider) Release() {
+func (s *SherpaOnnxProvider) Release() error {
 	sherpa.DeleteVoiceActivityDetector(s.vad)
+	return nil
 }
 
 func (s *SherpaOnnxProvider) GetSampleInfo() (int, int) {
