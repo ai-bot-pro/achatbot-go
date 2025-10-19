@@ -33,6 +33,10 @@ type PoolInstanceInfo struct {
 	instance   IPoolInstance
 }
 
+func (p *PoolInstanceInfo) GetInstance() IPoolInstance {
+	return p.instance
+}
+
 // ModuleProviderPool module provider 资源池
 type ModuleProviderPool struct {
 	poolInstances chan *PoolInstanceInfo

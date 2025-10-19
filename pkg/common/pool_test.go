@@ -89,7 +89,7 @@ func TestCreateNewInstanceInfo(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, instanceInfo)
 	assert.Equal(t, int32(0), instanceInfo.inUse)
-	assert.Equal(t, int64(1), instanceInfo.instanceID) // 初始化时为-1
+	assert.Equal(t, int64(1), instanceInfo.instanceID)
 	assert.NotNil(t, instanceInfo.instance)
 	assert.Equal(t, int64(1), pool.totalCreated)
 }

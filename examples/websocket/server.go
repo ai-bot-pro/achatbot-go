@@ -87,6 +87,58 @@ func (wsc *ExampleIWebSocketConn) Close() error {
 	return wsc.Conn.Close()
 }
 
+func load() (*common.ModuleProviderPool, *common.ModuleProviderPool, *common.ModuleProviderPool) {
+	var err error
+	// vad
+	vadPoolType := reflect.TypeOf(&vad_analyzer.SherpaOnnxProvider{})
+	common.RegisterNewFunc(vadPoolType, func() (common.IPoolInstance, error) {
+		sherpaOnnxProvider := vad_analyzer.NewSherpaOnnxProvider(
+			//vad_analyzer.NewDefaultSherpaOnnxVadModelConfig("ten"),
+			vad_analyzer.NewDefaultSherpaOnnxVadModelConfig("silero"),
+			100,
+		)
+		return sherpaOnnxProvider, nil
+	})
+	vadPool := common.NewModuleProviderPool(3, vadPoolType)
+	err = vadPool.Initialize()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// asr
+	asrPoolType := reflect.TypeOf(&asr.SherpaOnnxProvider{})
+	common.RegisterNewFunc(asrPoolType, func() (common.IPoolInstance, error) {
+		sherpaOnnxProvider := asr.NewSherpaOnnxProvider(asr.NewDefaultSherpaOnnxOfflineRecognizerConfig())
+		return sherpaOnnxProvider, nil
+	})
+	asrPool := common.NewModuleProviderPool(1, asrPoolType)
+	err = asrPool.Initialize()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// tts
+	ttsPoolType := reflect.TypeOf(&tts.SherpaOnnxProvider{})
+	common.RegisterNewFunc(ttsPoolType, func() (common.IPoolInstance, error) {
+		sherpaOnnxProvider := tts.NewSherpaOnnxProvider(tts.NewDefaultSherpaOnnxOfflineTtsConfig(), tts.KokoroTTS_Speaker_ZM_YunJian, 1.0, "kokoroTTS")
+		return sherpaOnnxProvider, nil
+	})
+	ttsPool := common.NewModuleProviderPool(1, ttsPoolType)
+	err = ttsPool.Initialize()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return vadPool, asrPool, ttsPool
+}
+
+var vadPool, asrPool, ttsPool *common.ModuleProviderPool
+
+func init() {
+	logger.InitLoggerWithConfig(logger.NewDefaultLoggerConfig())
+	vadPool, asrPool, ttsPool = load()
+}
+
 // handleWebSocket handles incoming WebSocket connections
 func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	// Upgrade the HTTP connection to a WebSocket connection
@@ -103,12 +155,13 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	session.InitChatMessage(map[string]any{"role": "system", "content": consts.DefaultLLMSystemPrompt})
 
 	// vad provider
-	sherpaOnnxProvider := vad_analyzer.NewSherpaOnnxProvider(
-		//vad_analyzer.NewDefaultSherpaOnnxVadModelConfig("ten"),
-		vad_analyzer.NewDefaultSherpaOnnxVadModelConfig("silero"),
-		100,
-	)
-	vadAnalyzer := vad_analyzer.NewVADAnalyzer(params.NewVADAnalyzerArgs(), sherpaOnnxProvider)
+	vadPoolInstanceInfo, err := vadPool.Get()
+	if err != nil {
+		log.Printf("Get VAD instance from pool err: %v", err)
+		return
+	}
+	vadProvider := vadPoolInstanceInfo.GetInstance().(*vad_analyzer.SherpaOnnxProvider)
+	vadAnalyzer := vad_analyzer.NewVADAnalyzer(params.NewVADAnalyzerArgs(), vadProvider)
 
 	// Wrap the connection to implement our interface
 	wsConn := &ExampleIWebSocketConn{Conn: conn}
@@ -134,11 +187,21 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		WithAudioOutSampleWidth(consts.DefaultSampleWidth).WithAudioOutSampleRate(consts.DefaultRate).WithAudioOutChannels(consts.DefaultChannels)
 
 	// Set ASR Processor
-	asrProvider := asr.NewSherpaOnnxProvider(asr.NewDefaultSherpaOnnxOfflineRecognizerConfig())
+	asrPoolInstanceInfo, err := asrPool.Get()
+	if err != nil {
+		log.Printf("Get ASR instance from pool err: %v", err)
+		return
+	}
+	asrProvider := asrPoolInstanceInfo.GetInstance().(*asr.SherpaOnnxProvider)
 	asrProcessor := achatbot_processors.NewASRProcessor(asrProvider)
 
 	// Set TTS Processor
-	ttsProvider := tts.NewSherpaOnnxProvider(tts.NewDefaultSherpaOnnxOfflineTtsConfig(), tts.KokoroTTS_Speaker_ZM_YunJian, 1.0, "kokoroTTS")
+	ttsPoolInstanceInfo, err := ttsPool.Get()
+	if err != nil {
+		log.Printf("Get tts instance from pool err: %v", err)
+		return
+	}
+	ttsProvider := ttsPoolInstanceInfo.GetInstance().(*tts.SherpaOnnxProvider)
 	ttsProcessor := achatbot_processors.NewTTSProcessor(ttsProvider)
 	outRate, outChannels, outSampleWidth := ttsProvider.GetSampleInfo()
 	audioCameraParams.WithAudioOutSampleWidth(outSampleWidth).WithAudioOutSampleRate(outRate).WithAudioOutChannels(outChannels)
@@ -212,13 +275,17 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		serverMu.Lock()
 		delete(activeTasks, task)
 		serverMu.Unlock()
+
+		// put to pool
+		asrPool.Put(vadPoolInstanceInfo)
+		asrPool.Put(asrPoolInstanceInfo)
+		asrPool.Put(ttsPoolInstanceInfo)
 	}()
 
 	task.Run()
 }
 
 func main() {
-	logger.InitLoggerWithConfig(logger.NewDefaultLoggerConfig())
 	// Create HTTP server
 	server := &http.Server{
 		Addr: ":4321",
@@ -262,6 +329,11 @@ func main() {
 		task.Cancel()
 	}
 	serverMu.Unlock()
+
+	// close pool
+	vadPool.Close()
+	asrPool.Close()
+	ttsPool.Close()
 
 	// Wait a bit for tasks to finish cleanup
 	time.Sleep(1 * time.Second)
