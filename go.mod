@@ -13,6 +13,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/weedge/pipeline-go v0.0.0-20251018070827-cb26255476a1
 	golang.org/x/image v0.32.0
+	golang.org/x/time v0.14.0
 )
 
 require (
