@@ -225,7 +225,7 @@ func main() {
 	}
 
 	// Set up the WebSocket endpoint with Rate Limiter middleware, set max one connect for local test
-	rateLimiter := middleware.NewDefaultRateLimiter().WithEnable(true).WithMaxConns(1)
+	rateLimiter := middleware.NewDefaultRateLimiter().WithEnable(true).WithMaxConns(3)
 	http.Handle("/", rateLimiter.Middleware(http.HandlerFunc(handleWebSocket)))
 
 	// Channel to listen for interrupt signal

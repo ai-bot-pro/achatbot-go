@@ -15,6 +15,7 @@ type NewFunc func() (IPoolInstance, error)
 
 var newFuncMap = make(map[reflect.Type]NewFunc)
 
+// init to RegisterNewFunc/GetNewFunc
 func RegisterNewFunc(poolType reflect.Type, newFunc NewFunc) {
 	newFuncMap[poolType] = newFunc
 }
@@ -38,6 +39,7 @@ type ModuleProviderPool struct {
 	poolSize      int
 	poolType      reflect.Type
 	newFunc       NewFunc
+	stopCh        chan struct{}
 
 	// stats info
 	totalCreated int64 // init create or beyond create +1
@@ -60,6 +62,7 @@ func NewModuleProviderPool(poolSize int, poolType reflect.Type) *ModuleProviderP
 		newFunc:       GetNewFunc(poolType),
 		ctx:           ctx,
 		cancel:        cancel,
+		stopCh:        make(chan struct{}),
 	}
 
 	return pool
@@ -138,35 +141,37 @@ func (p *ModuleProviderPool) Initialize() error {
 func (p *ModuleProviderPool) Get() (*PoolInstanceInfo, error) {
 	logger.Infof("Attempting to get %s instance from pool (available: %d)", p.poolType, len(p.poolInstances))
 
-	select {
-	case instanceInfo := <-p.poolInstances:
-		if instanceInfo == nil {
-			return nil, fmt.Errorf("received nil instance from pool")
-		}
-		logger.Infof("Got %s instanceInfoInfo#%d from pool", p.poolType, instanceInfo.instanceID)
-		if atomic.CompareAndSwapInt32(&instanceInfo.inUse, 0, 1) {
-			instanceInfo.lastUsed = time.Now().UnixNano()
-			atomic.AddInt64(&p.totalReused, 1)
-			atomic.AddInt64(&p.totalActive, 1)
-			logger.Infof("%s instance#%d marked as in-use (active: %d)", p.poolType, instanceInfo.instanceID, atomic.LoadInt64(&p.totalActive))
-			return instanceInfo, nil
-		}
-		logger.Warnf("%s instance#%d already in use, returning to pool", p.poolType, instanceInfo.instanceID)
+	for {
 		select {
-		case p.poolInstances <- instanceInfo:
-		default:
+		case instanceInfo := <-p.poolInstances:
+			if instanceInfo == nil {
+				return nil, fmt.Errorf("received nil instance from pool")
+			}
+			logger.Infof("Got %s instanceInfoInfo#%d from pool", p.poolType, instanceInfo.instanceID)
+			if atomic.CompareAndSwapInt32(&instanceInfo.inUse, 0, 1) {
+				instanceInfo.lastUsed = time.Now().UnixNano()
+				atomic.AddInt64(&p.totalReused, 1)
+				atomic.AddInt64(&p.totalActive, 1)
+				logger.Infof("%s instance#%d marked as in-use (active: %d)", p.poolType, instanceInfo.instanceID, atomic.LoadInt64(&p.totalActive))
+				return instanceInfo, nil
+			}
+			logger.Warnf("%s instance#%d already in use, returning to pool", p.poolType, instanceInfo.instanceID)
+			select {
+			case p.poolInstances <- instanceInfo:
+			default:
+			}
+		case <-time.After(100 * time.Millisecond):
+			logger.Warnf("pool timeout, creating new beyond instance")
+			instanceInfo, err := p.createNewInstanceInfo()
+			if err != nil {
+				return nil, fmt.Errorf("createNewInstanceInfo err: %s", err.Error())
+			}
+			instanceInfo.inUse = 1
+			atomic.AddInt64(&p.totalActive, 1)
+			return instanceInfo, nil
+		case <-p.ctx.Done():
+			return nil, fmt.Errorf("pool is shutting down")
 		}
-		return p.Get() // 递归重试
-	case <-time.After(100 * time.Millisecond):
-		logger.Warnf("pool timeout, creating new beyond instance")
-		instanceInfo, err := p.createNewInstanceInfo()
-		if err != nil {
-			return nil, fmt.Errorf("createNewInstanceInfo err: %s", err.Error())
-		}
-		instanceInfo.inUse = 1
-		return instanceInfo, nil
-	case <-p.ctx.Done():
-		return nil, fmt.Errorf("pool is shutting down")
 	}
 }
 
@@ -175,6 +180,13 @@ func (p *ModuleProviderPool) Put(instanceInfo *PoolInstanceInfo) {
 	if instanceInfo == nil {
 		logger.Warnf("Attempted to put nil instance")
 		return
+	}
+
+	select {
+	case <-p.stopCh:
+		logger.Warnf("poolInstances channel is closed")
+		return
+	default:
 	}
 
 	logger.Infof("Returning instance#%d to pool(%s)", instanceInfo.instanceID, p.poolType)
@@ -224,18 +236,14 @@ func (p *ModuleProviderPool) Close() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	// Drain the channel and release all instances
-	for {
-		select {
-		case instanceInfo := <-p.poolInstances:
-			if instanceInfo != nil && instanceInfo.instance != nil {
-				instanceInfo.instance.Release()
-			}
-		default:
-			// Channel is empty
-			close(p.poolInstances)
-			logger.Infof("Pool Closed")
-			return
+	// Close the channel first, then drain. This is safer when combined
+	// with a modified Put method that can handle a closed channel.
+	close(p.stopCh)
+	close(p.poolInstances)
+	for instanceInfo := range p.poolInstances {
+		if instanceInfo != nil && instanceInfo.instance != nil {
+			instanceInfo.instance.Release()
 		}
 	}
+	logger.Infof("Pool Closed")
 }

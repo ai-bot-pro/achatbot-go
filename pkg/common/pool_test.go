@@ -201,9 +201,7 @@ func TestGetWithTimeout(t *testing.T) {
 	// 应该增加 totalCreated 计数而不是 totalReused
 	assert.Equal(t, int64(1), pool.totalCreated)
 	assert.Equal(t, int64(0), pool.totalReused)
-	// 注意：超时创建的实例不会增加 totalActive 计数，因为它不来自池中
-	// totalActive 应该仍然是 0
-	assert.Equal(t, int64(0), pool.totalActive)
+	assert.Equal(t, int64(1), pool.totalActive)
 }
 
 func TestPut(t *testing.T) {
