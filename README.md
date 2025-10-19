@@ -48,8 +48,8 @@ cd examples/websocket/ui/ && python -m http.server
 - [ ] 7. local voice agent with micphone
 - [ ] 8. 3/4 + streaming avatar api Pipeline
 - [ ] 9. AIGC: gen Image/Music/Video remote api Pipeline
-- [ ] 10. connecting to RAG services for multimodal features
-
+- [ ] 10. connecting to RAG services for multimodal features with breaker
+- [ ] 11. config and service api for metadata manage with limiter
 
 
 
