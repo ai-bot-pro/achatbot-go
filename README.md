@@ -52,7 +52,8 @@ cd examples/websocket/ui/ && python -m http.server
 - [ ] 11. config and hot reload
 - [x] 12. service api add Rate Limiter(IP)
 - [x] 13. add pool for modules provider to init load, when connect to get provider to use
-- [ ] 14. dockerfile and CD (cloud: AWS ECS, GCP GKE, Azure AKS)
+- [ ] 14. dockerfile and CD (cloud: AWS ECS, GCP GKE, Azure AKS, Aliyun ECS/ECI) with Terraform
+
 
 # Acknowledgement
 - [ollama](https://github.com/ollama/ollama)
