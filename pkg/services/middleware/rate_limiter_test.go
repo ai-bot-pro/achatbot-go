@@ -70,51 +70,80 @@ func TestMiddlewareDisabled(t *testing.T) {
 	assert.Equal(t, "OK", resp.Body.String())
 }
 
+type TestCase struct {
+	name             string
+	maxConns         int // 最大连接数
+	concurrencyConns int //并发连接数
+	burstTokens      int //token桶容量
+}
+
 func TestMiddlewareConnectionLimit(t *testing.T) {
-	rl := NewRateLimiter(true, 10, 5, 2) // 最大连接数为2
-
-	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(100 * time.Millisecond) // 模拟处理时间
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
-	})
-
-	handler := rl.Middleware(nextHandler)
-
-	// 创建多个并发请求
-	var wg sync.WaitGroup
-	results := make(chan int, 5)
-
-	for range 5 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			req := httptest.NewRequest("GET", "/", nil)
-			resp := httptest.NewRecorder()
-			handler.ServeHTTP(resp, req)
-			results <- resp.Code
-		}()
+	testCases := []TestCase{
+		{
+			name:             "test max connections",
+			maxConns:         10,
+			burstTokens:      20,
+			concurrencyConns: 100,
+		},
+		{
+			name:             "test max burstTokens",
+			maxConns:         10,
+			burstTokens:      5,
+			concurrencyConns: 100,
+		},
 	}
+	for _, testCase := range testCases {
+		burstTokens := testCase.burstTokens
+		maxConns := testCase.maxConns
+		concurrencyConns := testCase.concurrencyConns
+		rl := NewRateLimiter(true, burstTokens, burstTokens, maxConns)
 
-	wg.Wait()
-	close(results)
+		nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			time.Sleep(100 * time.Millisecond) // 模拟处理时间
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("OK"))
+		})
 
-	// 统计结果
-	tooManyRequests := 0
-	ok := 0
+		handler := rl.Middleware(nextHandler)
 
-	for code := range results {
-		switch code {
-		case http.StatusTooManyRequests:
-			tooManyRequests++
-		case http.StatusOK:
-			ok++
+		// 创建多个并发请求
+		var wg sync.WaitGroup
+		results := make(chan int, concurrencyConns)
+
+		for range concurrencyConns {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				req := httptest.NewRequest("GET", "/", nil)
+				resp := httptest.NewRecorder()
+				handler.ServeHTTP(resp, req)
+				results <- resp.Code
+			}()
 		}
-	}
 
-	// 应该有2个成功，3个被限制
-	assert.Equal(t, 2, ok)
-	assert.Equal(t, 3, tooManyRequests)
+		wg.Wait()
+		close(results)
+
+		// 统计结果
+		tooManyRequests := 0
+		ok := 0
+
+		for code := range results {
+			switch code {
+			case http.StatusTooManyRequests:
+				tooManyRequests++
+			case http.StatusOK:
+				ok++
+			}
+		}
+
+		maxAllowRequests := burstTokens
+		if burstTokens > maxConns {
+			maxAllowRequests = maxConns
+		}
+		assert.Equal(t, maxAllowRequests, ok)
+		assert.Equal(t, concurrencyConns-maxAllowRequests, tooManyRequests)
+	}
 }
 
 func TestMiddlewareRateLimit(t *testing.T) {

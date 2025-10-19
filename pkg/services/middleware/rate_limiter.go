@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -18,7 +19,6 @@ type RateLimiter struct {
 	b                    int        // token桶容量大小
 	maxConns             int
 	connCount            int32
-	connMu               sync.Mutex
 	cleanupIntervalTimeS int // 清理间隔时间,检查是否token桶是满的，满则有段时间未用，可删除释放对应ip limiter
 }
 
@@ -75,15 +75,23 @@ func (rl *RateLimiter) WithCleanupIntervalTimeS(cleanupIntervalTimeS int) *RateL
 
 // getLimiter 获取或创建IP的限制器
 func (rl *RateLimiter) getLimiter(ip string) *rate.Limiter {
+	rl.mu.RLock()
+	limiter, exists := rl.limiters[ip]
+	rl.mu.RUnlock()
+	if exists {
+		return limiter
+	}
+
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 
-	limiter, exists := rl.limiters[ip]
-	if !exists {
-		limiter = rate.NewLimiter(rl.r, rl.b)
-		rl.limiters[ip] = limiter
+	// Double-check in case another goroutine created it while we were waiting for the lock.
+	if limiter, exists = rl.limiters[ip]; exists {
+		return limiter
 	}
 
+	limiter = rate.NewLimiter(rl.r, rl.b)
+	rl.limiters[ip] = limiter
 	return limiter
 }
 
@@ -99,7 +107,7 @@ func (rl *RateLimiter) cleanupLimiters() {
 			for ip, limiter := range rl.limiters {
 				//allow := limiter.AllowN(time.Now(), rl.b)
 				availableTokenNum := limiter.Tokens()
-				allow := int(availableTokenNum) == rl.b
+				allow := availableTokenNum >= float64(rl.b) // for float compare
 				if allow {
 					// 检查是否token桶是满的，满则有段时间未用，可删除释放对应ip limiter
 					delete(rl.limiters, ip)
@@ -122,26 +130,22 @@ func (rl *RateLimiter) Middleware(next http.Handler) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// 检查连接数限制
-		rl.connMu.Lock()
-		if rl.connCount >= int32(rl.maxConns) {
-			rl.connMu.Unlock()
+		currentConns := atomic.AddInt32(&rl.connCount, 1)
+		if currentConns > int32(rl.maxConns) {
+			atomic.AddInt32(&rl.connCount, -1) // Decrement back as we are rejecting this connection.
 			http.Error(w, "Too many connections", http.StatusTooManyRequests)
 			return
 		}
-		rl.connCount++
-		rl.connMu.Unlock()
 
 		// 连接结束时减少计数
-		defer func() {
-			rl.connMu.Lock()
-			rl.connCount--
-			rl.connMu.Unlock()
-		}()
+		defer atomic.AddInt32(&rl.connCount, -1)
 
 		// 获取客户端IP
 		ip := r.RemoteAddr
 		if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
-			ip = forwarded
+			// X-Forwarded-For can be a comma-separated list of IPs. The first one is the original client.
+			parts := strings.Split(forwarded, ",")
+			ip = strings.TrimSpace(parts[0])
 		}
 
 		// 检查客户端IP请求速率限制
