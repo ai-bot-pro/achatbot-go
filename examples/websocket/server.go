@@ -30,6 +30,7 @@ import (
 	achatbot_processors "achatbot/pkg/processors"
 	achatbot_aggregators "achatbot/pkg/processors/aggregators"
 	"achatbot/pkg/processors/llm_processors"
+	"achatbot/pkg/services/middleware"
 	"achatbot/pkg/transports"
 	"achatbot/pkg/types"
 	achatbot_frames "achatbot/pkg/types/frames"
@@ -223,8 +224,9 @@ func main() {
 		Addr: ":4321",
 	}
 
-	// Set up the WebSocket endpoint
-	http.HandleFunc("/", handleWebSocket)
+	// Set up the WebSocket endpoint with Rate Limiter middleware
+	rateLimiter := middleware.NewDefaultRateLimiter()
+	http.Handle("/", rateLimiter.Middleware(http.HandlerFunc(handleWebSocket)))
 
 	// Channel to listen for interrupt signal
 	sigChan := make(chan os.Signal, 1)
