@@ -11,6 +11,7 @@ import (
 	"github.com/weedge/pipeline-go/pkg/processors"
 
 	"achatbot/pkg/common"
+	"achatbot/pkg/consts"
 	"achatbot/pkg/params"
 	achatbot_frames "achatbot/pkg/types/frames"
 	"achatbot/pkg/utils"
@@ -71,7 +72,7 @@ func NewAudioCameraOutputProcessor(name string, params *params.AudioCameraParams
 		cameraImages:               make([]*frames.ImageRawFrame, 0),
 		botSpeaking:                false,
 		transportWriter:            params.TransportWriter,
-		botSpeakingSendPeriodMS:    200,
+		botSpeakingSendPeriodMS:    consts.DefaultBotSpeakingSendPeriodMS,
 		botSpeakingSendPeriodMSAcc: 0,
 	}
 
@@ -232,7 +233,7 @@ func (p *AudioCameraOutputProcessor) handleAudio(frame *frames.AudioRawFrame) {
 		if p.botSpeakingSendPeriodMSAcc >= p.botSpeakingSendPeriodMSBuf {
 			p.botSpeakingSendPeriodMSAcc -= p.botSpeakingSendPeriodMSBuf
 			// Push bot speaking frame upstream if bot is speaking,
-			// quickly push, this can test upstream processor process frame speed :)
+			// if botSpeakingSendPeriodMSBuf=0, quickly push, this can test upstream processor process frame speed :)
 			p.PushFrame(achatbot_frames.NewBotSpeakingFrame(), processors.FrameDirectionUpstream)
 		}
 	}
