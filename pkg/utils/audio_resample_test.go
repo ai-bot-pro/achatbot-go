@@ -64,7 +64,6 @@ func BenchmarkResample24KTo16K(b *testing.B) {
 		input[i] = float32(i%1000) / 1000.0
 	}
 
-	
 	for b.Loop() {
 		Resample24KTo16K(input)
 	}

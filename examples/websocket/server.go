@@ -151,7 +151,8 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	// Set Session
 	clientId := fmt.Sprintf("%s_%s", conn.RemoteAddr().Network(), conn.RemoteAddr().String())
-	session := common.NewSession(clientId, nil)
+	chatHistorySize := 2
+	session := common.NewSession(clientId, &chatHistorySize)
 	session.InitChatMessage(map[string]any{"role": "system", "content": consts.DefaultLLMSystemPrompt})
 
 	// vad provider
@@ -230,7 +231,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			processors.NewDefaultFrameLoggerProcessorWithIncludeFrame(
 				[]frames.Frame{&frames.StartFrame{}, &frames.EndFrame{}, &frames.CancelFrame{}},
 			),
-			processors.NewDefaultFrameLoggerProcessorWithIncludeFrame([]frames.Frame{&achatbot_frames.BotSpeakingFrame{}}).WithMaxIdToLogs([]uint64{100}),
+			processors.NewDefaultFrameLoggerProcessorWithIncludeFrame([]frames.Frame{&achatbot_frames.BotSpeakingFrame{}}).WithMaxIdToLogs([]uint64{}),
 
 			ws_transport.InputProcessor(),
 			achatbot_aggregators.NewAudioResponseAggregatorWithAccumulate(
