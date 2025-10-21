@@ -39,6 +39,10 @@ type AudioCameraOutputProcessor struct {
 
 	// Indicates if the bot is currently speaking
 	botSpeaking bool
+	// bot speaking send period million seconds
+	botSpeakingSendPeriodMS    int
+	botSpeakingSendPeriodMSBuf int
+	botSpeakingSendPeriodMSAcc int
 
 	// Camera output timing
 	cameraOutStartTime     time.Time
@@ -55,21 +59,25 @@ func NewAudioCameraOutputProcessor(name string, params *params.AudioCameraParams
 	ctx, cancel := context.WithCancel(context.Background())
 
 	p := &AudioCameraOutputProcessor{
-		AsyncFrameProcessor: processors.NewAsyncFrameProcessor(name),
-		params:              params,
-		ctx:                 ctx,
-		cancel:              cancel,
-		audioOutQueue:       make(chan []byte, 100), // buffer size
-		audioOutTask:        &sync.WaitGroup{},
-		cameraOutQueue:      make(chan frames.Frame, 100), // buffer size
-		cameraOutTask:       &sync.WaitGroup{},
-		audioOutBuff:        make([]byte, 0),
-		cameraImages:        make([]*frames.ImageRawFrame, 0),
-		botSpeaking:         false,
-		transportWriter:     params.TransportWriter,
+		AsyncFrameProcessor:        processors.NewAsyncFrameProcessor(name),
+		params:                     params,
+		ctx:                        ctx,
+		cancel:                     cancel,
+		audioOutQueue:              make(chan []byte, 100), // buffer size
+		audioOutTask:               &sync.WaitGroup{},
+		cameraOutQueue:             make(chan frames.Frame, 100), // buffer size
+		cameraOutTask:              &sync.WaitGroup{},
+		audioOutBuff:               make([]byte, 0),
+		cameraImages:               make([]*frames.ImageRawFrame, 0),
+		botSpeaking:                false,
+		transportWriter:            params.TransportWriter,
+		botSpeakingSendPeriodMS:    200,
+		botSpeakingSendPeriodMSAcc: 0,
 	}
 
-	p.audioChunkSize = (p.params.AudioOutSampleRate / 100) * p.params.AudioOutChannels * 2 * p.params.AudioOut10msChunks
+	p.botSpeakingSendPeriodMSBuf = p.botSpeakingSendPeriodMS * params.AudioOutChannels * params.AudioOutSampleRate * params.AudioOutSampleWidth / 1000
+
+	p.audioChunkSize = (p.params.AudioOutSampleRate / 100) * p.params.AudioOutChannels * p.params.AudioOutSampleWidth * p.params.AudioOut10msChunks // 10ms * num
 	if p.audioChunkSize == 0 {
 		logger.Warn("audioChunkSize is 0, please check your audioOutSampleRate and audioOutChannels and audioOut10msChunks values in your config")
 		return nil
@@ -220,9 +228,13 @@ func (p *AudioCameraOutputProcessor) handleAudio(frame *frames.AudioRawFrame) {
 			return
 		}
 
-		// Push bot speaking frame upstream if bot is speaking,
-		// quickly push, this can test upstream processor process frame speed :)
-		p.PushFrame(achatbot_frames.NewBotSpeakingFrame(), processors.FrameDirectionUpstream)
+		p.botSpeakingSendPeriodMSAcc += len(chunk)
+		if p.botSpeakingSendPeriodMSAcc >= p.botSpeakingSendPeriodMSBuf {
+			p.botSpeakingSendPeriodMSAcc -= p.botSpeakingSendPeriodMSBuf
+			// Push bot speaking frame upstream if bot is speaking,
+			// quickly push, this can test upstream processor process frame speed :)
+			p.PushFrame(achatbot_frames.NewBotSpeakingFrame(), processors.FrameDirectionUpstream)
+		}
 	}
 }
 
