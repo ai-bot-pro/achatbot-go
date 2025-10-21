@@ -39,7 +39,7 @@ type AudioCameraOutputProcessor struct {
 
 	// Indicates if the bot is currently speaking
 	botSpeaking bool
-	// bot speaking send period million seconds
+	// bot speaking send period milliseconds
 	botSpeakingSendPeriodMS    int
 	botSpeakingSendPeriodMSBuf int
 	botSpeakingSendPeriodMSAcc int
