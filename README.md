@@ -3,6 +3,9 @@
 # achatbot-go
 a multimodal chatbot.
 
+## Design
+⭐️ [Pipeline Design](https://github.com/ai-bot-pro/pipeline-py/blob/main/README.md#design) ⭐️
+
 ## Search Functionality
 To use the search functionality, you need to set the SERPER_API_KEY environment variable.
 
