@@ -42,21 +42,22 @@ cd examples/websocket/ui/ && python -m http.server
 ```
 
 ## TODO
-- [x] 1. support tool-calls
-- [ ] 2. support MCP
-- [ ] 3. local VAD/turn + ASR+LLM+TTS remote api Pipeline
-- [ ] 4. local VAD/turn + E2E/autonomous llm-audio/omni realtime api Pipeline
-- [ ] 5. local Speech-to-Text with Speaker Identification Pipeline
-- [ ] 6. webrtc or websocket+webrtc bridge transports
-- [ ] 7. local voice agent with micphone
-- [ ] 8. 3/4 + streaming avatar api Pipeline
-- [ ] 9. AIGC: gen Image/Music/Video remote api Pipeline
-- [ ] 10. connecting to RAG services for multimodal features with breaker
-- [ ] 11. config and hot reload
-- [x] 12. service api add Rate Limiter(IP)
-- [x] 13. add pool for modules provider to init load, when connect to get provider to use
-- [ ] 14. connector between achatbot and achatbot-go
-- [ ] 15. dockerfile and CD (cloud: AWS ECS, GCP GKE, Azure AKS, Aliyun ECS/ECI) with Terraform
+- [x] support tool-calls
+- [ ] support MCP
+- [ ] support A2A
+- [ ] local VAD/turn + ASR+LLM+TTS remote api Pipeline
+- [ ] local VAD/turn + E2E/autonomous llm-audio/omni realtime api Pipeline
+- [ ] local Speech-to-Text with Speaker Identification Pipeline
+- [ ] webrtc or websocket+webrtc bridge transports
+- [ ] local voice agent with micphone
+- [ ] 3/4 + streaming avatar api Pipeline
+- [ ] AIGC: gen Image/Music/Video remote api Pipeline
+- [ ] connecting to RAG services for multimodal features with breaker
+- [ ] config and hot reload
+- [x] service api add Rate Limiter(IP)
+- [x] add pool for modules provider to init load, when connect to get provider to use
+- [ ] connector between achatbot and achatbot-go
+- [ ] Dockerfile(docker)/Containerfile(podman) and CD (cloud: AWS ECS, GCP GKE, Azure AKS, Aliyun ECS/ECI) with Terraform
 
 
 # Acknowledgement
