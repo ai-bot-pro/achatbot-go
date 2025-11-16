@@ -46,8 +46,8 @@ cd examples/websocket/ui/ && python -m http.server
 - [ ] support MCP
 - [ ] support A2A: [golang a2a-sdk](https://github.com/a2aproject/a2a-go)
 - [ ] Integration with ai framework: [google-adk-go](https://github.com/google/adk-go) | [cloudwego/eino](https://github.com/cloudwego/eino)
-- [ ] local VAD/turn + ASR+LLM+TTS remote api Pipeline
-- [ ] local VAD/turn + E2E/autonomous llm-audio/omni realtime api Pipeline
+- [ ] 3. local VAD/turn + ASR+LLM+TTS remote api Pipeline
+- [ ] 4. local VAD/turn + E2E/autonomous llm-audio/omni realtime api Pipeline
 - [ ] local Speech-to-Text with Speaker Identification Pipeline
 - [ ] webrtc or websocket+webrtc bridge transports
 - [ ] local voice agent with micphone
