@@ -17,6 +17,7 @@ export SEARCH_API_KEY=your_search_api_key
 
 ## local VAD+ASR+LLM+TTS Pipeline
 - run local vad+asr+llm+tts pipeline websocket voice agent (not agentic), need download [ollama](https://docs.ollama.com/quickstart) and start ollama server
+<img width="1320" height="591" alt="image" src="https://github.com/user-attachments/assets/b655e9b9-f529-4fba-b4ff-7e70b7ce0d38" />
 
 ```shell
 # 0. install deps
